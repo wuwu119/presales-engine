@@ -8,7 +8,7 @@ meta:
 company:
   name_zh: ""
   name_en: ""
-  industry: ""              # IT 服务 / 软件产品 / 硬件集成 / 咨询 / 其他
+  industry: ""              # IT 服务 / 软件产品 / 硬件集成 / 咨询 / 网络安全 / 其他
   product_lines: []         # 主要产品线，字符串数组
 
 preferences:
