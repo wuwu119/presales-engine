@@ -61,18 +61,26 @@ argument-hint: "<opportunity-slug> [--chapter <name>] [--outline-only]"
 
 追溯标记是**强约束**，没有标记的段落在 v0.2 `/ps:bid-review` 会被拒。
 
-### Phase 3: 覆盖率校验（内嵌）
+### Phase 3: 覆盖率校验
 
-生成完所有章节后，由 skill 本身（或后续脚本）做覆盖率检查：
+**v0.1（当前行为）**：由 LLM 自检，**不写文件**，**不强制中止**。
 
-1. 扫描 `draft/chapters/*.md` 提取所有追溯标记
+生成完所有章节后，LLM 必须：
+1. 扫描自己刚写出的 `draft/chapters/*.md` 提取所有 `[对标: ...]` 追溯标记
 2. 对照 `rfp.yaml.scoring` 和 `rfp.yaml.requirements`
-3. 输出覆盖率报告：
-   - ✅ 已覆盖
-   - ❌ 未覆盖（严重）
-   - ⚠️ 被引用但论述单薄（段落 < 3 段 / 字数 < 200）
+3. 在最终对话消息中明确列出（不写到文件）：
+   - ✅ 已覆盖项
+   - ❌ 未覆盖项（按权重降序）
+   - ⚠️ 论述单薄项（段落 < 3 段 / 字数 < 200）
 
-**覆盖率 < 100% 强制报警**，并写入 `draft/coverage-report.md`。允许用户确认接受后写入 `meta.yaml.acknowledged_gaps`。
+如果覆盖率 < 100%，**警告**用户但不中止 — 由用户决定是否接受。
+
+**v0.2 路标**：引入 `scripts/bid_coverage.py` 作为机械裁判，届时：
+- 自动写入 `draft/coverage-report.md`
+- 覆盖率 < 80% 强制中止（不允许用户拍板）
+- 覆盖率 80%–99% 必须用户确认后写入 `meta.yaml.acknowledged_gaps`
+
+> ⚠️ v0.1 **不写** `draft/coverage-report.md`，**不强制**任何覆盖率门槛。下游 agent 不应假设此文件存在。
 
 ## 约束（强制）
 
@@ -94,7 +102,7 @@ argument-hint: "<opportunity-slug> [--chapter <name>] [--outline-only]"
 | 前置文件缺失 | 报错 + 指引先跑前置 skill |
 | `analysis.md` 决策 = No-Go | 拒绝执行 + 提示改决策或放弃 |
 | 模板不存在 | 从零生成 + 提示用户"此章节无模板，建议首次生成后沉淀为模板" |
-| 覆盖率 < 80% | 强制中止 + 要求用户确认大纲是否完整 |
+| 覆盖率 < 100% (v0.1) | LLM 在对话中警告 + 列出未覆盖项，**不中止**（v0.2 引入硬门槛） |
 | 用户跳过大纲确认 | 允许，但生成后强警告：未经大纲确认可能偏离需求 |
 
 ## 后续步骤提示

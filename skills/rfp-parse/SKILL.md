@@ -28,6 +28,22 @@ argument-hint: "<opportunity-slug> [--force]"
 
 ## 行为流程
 
+### Phase 0: 准备 opportunity 目录
+
+确保 `${PRESALES_HOME}/opportunities/{slug}/` 子树存在。这是确定性体力活，**v0.1 由 skill 直接通过 Bash 创建**（v0.2 路标：引入 `scripts/ps_opportunity.py --create --slug X` 把这步移出 skill）：
+
+```bash
+SLUG="<slug>"
+HOME_DIR="${PRESALES_HOME:-$HOME/.presales}"
+mkdir -p "$HOME_DIR/opportunities/$SLUG/rfp/original" \
+         "$HOME_DIR/opportunities/$SLUG/analysis" \
+         "$HOME_DIR/opportunities/$SLUG/draft/chapters"
+```
+
+创建之后，**必须**检查 `rfp/original/` 是否为空：
+- 空 → 停止并提示用户把 RFP 文件放进 `$HOME_DIR/opportunities/$SLUG/rfp/original/`，然后重跑
+- 非空 → 进入 Phase 1
+
 ### Phase 1: 文本提取
 
 优先用 Claude Code 原生 `Read` 工具读取所有 `rfp/original/*`：
@@ -79,8 +95,8 @@ argument-hint: "<opportunity-slug> [--force]"
 
 | 情况 | 处理 |
 |------|------|
-| `{slug}` 目录不存在 | 报错 + 提示先创建 `opportunities/{slug}/rfp/original/` |
-| `original/` 为空 | 报错 + 提示放置文件 |
+| `{slug}` 目录不存在 | Phase 0 自动创建 + 检查 `original/` 是否为空 |
+| `original/` 为空 | 报错 + 提示用户把 RFP 文件放进 `original/` 后重跑 |
 | 无法提取 PDF（加密） | 报错 + 建议手工解密后重跑 |
 | 扫描件 PDF 无 OCR | 报错 + 建议手工转 Markdown |
 | 解析歧义项 > 5 条 | 完成解析，但强烈建议人工复核 |

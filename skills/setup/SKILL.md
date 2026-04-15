@@ -23,9 +23,37 @@ argument-hint: "[--reset] [--import <path>] [--check]"
    - 默认：若目录已存在且 `.version` 匹配 → 提示"已初始化"直接退出；否则进入交互式问答 → `--init`
 3. 所有文件系统操作**必须**通过 `scripts/ps_setup.py`，禁止在 skill 内手写 `mkdir` 或 `cat >`
 
-## 交互式问答
+## 调用模式
 
-用平台的 `AskUserQuestion`（或等效工具）一次问一个问题。优先单选，自由输入留给必要字段：
+`ps:setup` 有两条等价路径，按调用上下文选择：
+
+### A. 非交互路径（CI / 程序化 / 已知配置）
+
+直接调用脚本，把配置作为 JSON 字符串传入，跳过 Q&A。这是 agent-to-agent 调用的首选：
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
+  --init \
+  --config-json '{"company_name_zh":"...","industry":"IT 服务",...}'
+```
+
+**`--config-json` 字段约定**：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `company_name_zh` | string | ✅ | 公司中文名 |
+| `company_name_en` | string | ❌ | 公司英文名 |
+| `industry` | string | ✅ | 行业（IT 服务 / 软件产品 / 硬件集成 / 咨询 / 其他） |
+| `product_lines` | string[] | ✅ | 产品线列表，至少 1 项 |
+| `language` | string | ✅ | `zh-CN` 或 `en` |
+| `currency` | string | ✅ | `CNY` / `USD` / `EUR` / 其他 |
+| `highlights` | string[] | ❌ | 公司能力亮点列表 |
+
+未列出的字段会被忽略。`highlights` 接受 string 或 string[]，scalar 会被强制归一化为单元素 list。
+
+### B. 交互路径（人类首次安装）
+
+用平台的 `AskUserQuestion`（或等效工具）一次问一个问题，优先单选，必要时才自由输入：
 
 | 序 | 问题 | 类型 | 必填 |
 |----|------|------|------|
@@ -37,28 +65,28 @@ argument-hint: "[--reset] [--import <path>] [--check]"
 | 6 | 默认货币 | 单选：CNY / USD / EUR / 其他 | ✅ |
 | 7 | 公司能力亮点（一段话，可跳过） | 文本 | ❌ |
 
-收集完毕后，组装成 JSON 传给脚本。
+收集完毕后组装成 `--config-json` 走 A 路径调用脚本。**禁止在 skill 内手写 `mkdir` 或 `cat >`**。
 
-## 脚本调用
-
-```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
-  --init \
-  --config-json '<json_string>'
-```
-
-其他模式：
+## 其他脚本调用
 
 ```bash
-# 检查状态
+# 检查状态（人类可读 prose；--format json 见 v0.2 路标）
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" --check
 
 # 重置（脚本内部会备份到 ~/.presales.backup.<timestamp>）
+# ⚠️ v0.1 无 --yes 标志，agent 调用前必须二次确认
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" --reset
 
 # 从旧目录导入
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" --import /path/to/old-presales
+
+# 强制覆盖已存在的 config.yaml / company-profile.yaml（迁移或修复用）
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" --init --config-json '<json>' --force
 ```
+
+`--force` 行为：
+- 不带：`config.yaml` / `company-profile.yaml` 已存在则跳过写入（保护用户已编辑的内容）
+- 带：覆盖所有种子文件，**不备份**（用户已经手工编辑的字段会被丢弃）
 
 ## 产出
 

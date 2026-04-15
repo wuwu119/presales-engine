@@ -200,6 +200,7 @@ parsing_meta:
 
 1. **Skill 间零 import** — 耦合只通过文件系统
 2. **禁止在 skill 内做文件系统体力活** — 统一走 `scripts/`
+   - **v0.1 临时例外**：`ps:rfp-parse` Phase 0 允许通过 inline `mkdir -p` 创建 opportunity 子树（对应 ce:review 2026-04-15 的 Finding #9 修复）。v0.2 路标：引入 `scripts/ps_opportunity.py --create --slug` 把 mkdir 移出 skill。
 3. **禁止把用户数据写到插件目录** — 只能写 `PRESALES_HOME`
 4. **SKILL.md ≤ 300 行** — 精简原则，细节放 `references/`
 5. **LLM 做决策，脚本做体力活** — 判断力不写脚本，确定性操作才写脚本
