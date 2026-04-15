@@ -50,21 +50,21 @@ argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
 
 ### B. 交互路径（默认）
 
-**只问一个问题**：
+> **交互工具硬性约束**：所有用户输入**必须**通过平台的 `AskUserQuestion` 工具（Claude Code 原生）或等效工具。**禁止**在对话里写"请选择：1. X / 2. Y / 3. Z"这种文本式选单让用户手打回复——那不是交互对话，是聊天机器人式的退化。每一次需要用户决策的地方都走 `AskUserQuestion`。
 
-| 序 | 问题 | 必填 |
-|----|------|------|
-| 1 | 公司官网 URL（例如 `https://example.com`） | ✅ |
+#### Step 1：问 URL
 
-拿到 URL 后执行 3 阶段：
+调用 `AskUserQuestion`：
+- `question`: "请提供公司官网 URL（例如 `https://example.com`）"
+- `input_type`: text / free-form
 
-**Phase 1：抓取**
+#### Step 2：抓取（Phase 1）
 
-用 `WebFetch` 工具抓取主页。如果主页首屏信息不足（例如纯 SPA 或只有 logo），**最多再抓一个** `/about` 或 `/company` 子页。禁止深爬。
+用 `WebFetch` 抓取用户给的 URL。如果主页首屏信息不足（纯 SPA / 只有 logo），**最多再抓一个** `/about` 或 `/company` 子页。**禁止深爬**。
 
-**Phase 2：抽取最小字段**
+#### Step 3：抽取最小字段（Phase 2）
 
-从抓到的 HTML / Markdown 内容里，**只**抽取这些字段，抓到什么填什么：
+从抓到的 HTML / Markdown 内容里，**只**抽取这些字段：
 
 | 字段 | 来源线索 |
 |------|----------|
@@ -76,27 +76,50 @@ argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
 | 一句话简介 | meta description 或首屏一行文案 |
 | `preferences.language` / `currency` | 按域名推断：`.cn` 或中文内容 → `zh-CN` / `CNY`；`.com` 英文内容 → `en` / `USD`；不确定默认 `zh-CN` / `CNY` |
 
-**严禁编造**：页面没有明确文字的字段一律 `null`。
+**硬性规则**：
 
-**以下字段 v0.1 setup 一律留空**（等独立知识库构建流程处理）：
-- `qualifications[]`
-- `case_references[]`
-- `team[]`
-- `highlights[]`（除非首屏有明确可量化的亮点文字）
-- `company.product_lines[]`（除非首屏有明确的产品线列表）
+1. **严禁编造**：页面没有明确文字的字段一律 `null`。
+2. **以下字段 v0.1 setup 永远留空**（绝对规则，无例外，即使页面上有）：
+   - `qualifications[]`
+   - `case_references[]`
+   - `team[]`
+   - `highlights[]`
+   - `company.product_lines[]`
+   - 这些字段的建设不归 setup 管，留给未来独立的知识库构建流程
 
-**Phase 3：Review + 写入**
+#### Step 4：展示 Review 表格（Phase 3 前半）
 
-用 Markdown 表格展示抽取结果，每行标注 source（"来自 `<title>`"、"来自 /about 页段 2"等），问用户：
+用**一个紧凑的 Markdown 表格**展示抽取结果，禁止一个字段一个字段 dump。格式必须长这样：
 
+```markdown
+| 字段 | 值 | 来源 |
+|------|-----|------|
+| 中文名 | 奇安信 | `<title>` |
+| 英文名 | Qianxin | `og:site_name` |
+| 行业 | 网络安全 | meta description |
+| 成立年份 | 2014 | About us 页 |
+| 总部 | 北京 | footer |
+| 员工规模 | null | — |
+| 一句话简介 | 新一代网络安全领军者 | hero slogan |
+| 语言 / 货币 | zh-CN / CNY | 域名 .cn + 中文内容 |
 ```
-以上信息对吗？
-✅ 全部接受 → 直接写入
-✏️ 某项要改 → 告诉我要改的字段和正确值
-❌ 全部丢弃 → 走 fallback 最小手工问答
-```
 
-接受后调用脚本：
+未识别的字段值显示为 `null`，来源列显示为 `—`。所有 Markdown 代码块输出给用户一次看完。
+
+#### Step 5：用 `AskUserQuestion` 要确认（Phase 3 后半）
+
+表格之后**立刻**调用 `AskUserQuestion`：
+- `question`: "以上信息是否正确？"
+- options（single-select，required）：
+  - ✅ **全部接受** — 直接写入
+  - ✏️ **修改某项** — 下一步再选改哪个字段
+  - ❌ **全部丢弃** — 走 fallback 最小手工问答
+
+**禁止直接输出 "请选择：1/2/3" 让用户打字回复。必须走 `AskUserQuestion` 让用户点选。**
+
+#### Step 6：按用户选择分叉
+
+**选 ✅**：直接调用脚本写入：
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
@@ -104,7 +127,16 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
   --config-json '{"company_name_zh":"...","company_name_en":"...","industry":"...","language":"zh-CN","currency":"CNY"}'
 ```
 
-`--home` 默认不传（用 `~/presales/`）。如果用户后续想换位置，再用 `ps:setup --home` 重新走一遍。
+`--home` 默认不传（用 `~/presales/`）。
+
+**选 ✏️**：再调用 `AskUserQuestion`：
+- `question`: "要修改哪个字段？"
+- options: 列出 Step 4 表格里所有字段作为 single-select 选项
+- 用户选中字段后，再调一次 `AskUserQuestion` 问新值（text input）
+- 把修正合并进抽取结果，**返回 Step 4 重新展示表格** + Step 5 再问一次是否确认
+- 循环直到用户选 ✅ 或 ❌
+
+**选 ❌**：进 B-fallback 段。
 
 ### B-fallback：URL 不可用或抽取失败
 
@@ -114,16 +146,13 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
 - 抓到 HTML 但关键字段都提取不到（例如纯 JS 渲染的 SPA）
 - 用户在 review 阶段选 ❌
 
-回退到**最小手工问答**（3 题）：
+回退到**最小手工问答**（3 题），**每题都通过 `AskUserQuestion` 一题一问**，禁止文本式 "请回答以下 3 个问题："：
 
-| 序 | 问题 | 必填 |
-|----|------|------|
-| 1 | 公司中文名称 | ✅ |
-| 2 | 公司英文名称 | ❌ |
-| 3 | 所在行业（一句话） | ✅ |
+1. `AskUserQuestion`：`"公司中文名称"`（text input，必填）
+2. `AskUserQuestion`：`"公司英文名称（可跳过）"`（text input，可选）
+3. `AskUserQuestion`：`"所在行业（一句话描述）"`（text input，必填）
 
-其他字段全部留空，组装成 `--config-json` 调用脚本，默认 `language=zh-CN` / `currency=CNY`。
-用户后续可手工编辑 `~/presales/knowledge/company-profile.yaml` 补充。
+收集完后组装成 `--config-json` 调用脚本，默认 `language=zh-CN` / `currency=CNY`，其他字段全部留空。用户后续可手工编辑 `~/presales/knowledge/company-profile.yaml` 补充。
 
 ---
 
