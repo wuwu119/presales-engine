@@ -22,43 +22,27 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-# Local import from same scripts/ directory
+# Local imports from same scripts/ directory
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ps_paths import knowledge_paths, plugin_root, presales_home, seed_templates_dir  # noqa: E402
-
-VERSION = "0.1.0"
-
-DEFAULT_DIRS: list[str] = [
-    "opportunities",
-    "cases",
-    "knowledge",
-    "knowledge/products",
-    "knowledge/competitors",
-    "templates",
-]
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def _write_yaml(path: Path, data: dict) -> None:
-    """Serialize data as YAML and write to path. Requires PyYAML."""
-    try:
-        import yaml  # type: ignore
-    except ImportError as e:
-        raise RuntimeError(
-            "presales-engine 需要 PyYAML 来写入 YAML 配置。请运行 `pip install pyyaml` 后重试。"
-        ) from e
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        yaml.safe_dump(data, allow_unicode=True, sort_keys=False, default_flow_style=False),
-        encoding="utf-8",
-    )
+from ps_setup_utils import (  # noqa: E402
+    DEFAULT_DIRS,
+    VERSION,
+    _UNSAFE_RESET_PATHS,
+    _normalize_highlights,
+    _now_iso,
+    _write_yaml,
+)
 
 
 def init_skeleton(config: dict, force: bool = False) -> int:
-    """Create directory skeleton, write config and seed templates. Idempotent."""
+    """Create directory skeleton, write config and seed templates. Idempotent.
+
+    Write order: directories → config files → seed templates → .version (last).
+    Writing .version last means a partial-init crash leaves no version marker,
+    so re-running --init will retry the failed step instead of short-circuiting
+    with "already initialized".
+    """
     home = presales_home()
     kp = knowledge_paths()
 
@@ -70,48 +54,56 @@ def init_skeleton(config: dict, force: bool = False) -> int:
             print("   若要重置，使用 --reset；若要从旧目录导入，使用 --import <path>")
             return 0
 
-    home.mkdir(parents=True, exist_ok=True)
-    for sub in DEFAULT_DIRS:
-        (home / sub).mkdir(parents=True, exist_ok=True)
+    try:
+        home.mkdir(parents=True, exist_ok=True)
+        for sub in DEFAULT_DIRS:
+            (home / sub).mkdir(parents=True, exist_ok=True)
 
-    version_file.write_text(VERSION, encoding="utf-8")
+        config_path = kp["config"]
+        if not config_path.exists() or force:
+            _write_yaml(config_path, {
+                "meta": {
+                    "version": VERSION,
+                    "initialized_at": _now_iso(),
+                },
+                "company": {
+                    "name_zh": config.get("company_name_zh", ""),
+                    "name_en": config.get("company_name_en", ""),
+                    "industry": config.get("industry", ""),
+                    "product_lines": config.get("product_lines", []),
+                },
+                "preferences": {
+                    "language": config.get("language", "zh-CN"),
+                    "currency": config.get("currency", "CNY"),
+                },
+            })
 
-    config_path = kp["config"]
-    if not config_path.exists() or force:
-        _write_yaml(config_path, {
-            "meta": {
-                "version": VERSION,
-                "initialized_at": _now_iso(),
-            },
-            "company": {
-                "name_zh": config.get("company_name_zh", ""),
-                "name_en": config.get("company_name_en", ""),
-                "industry": config.get("industry", ""),
-                "product_lines": config.get("product_lines", []),
-            },
-            "preferences": {
-                "language": config.get("language", "zh-CN"),
-                "currency": config.get("currency", "CNY"),
-            },
-        })
+        profile_path = kp["company_profile"]
+        if not profile_path.exists() or force:
+            _write_yaml(profile_path, {
+                "company": {
+                    "name_zh": config.get("company_name_zh", ""),
+                    "name_en": config.get("company_name_en", ""),
+                    "founded": None,
+                    "size": None,
+                    "location": None,
+                },
+                "qualifications": [],
+                "case_references": [],
+                "team": [],
+                "highlights": _normalize_highlights(config.get("highlights")),
+            })
 
-    profile_path = kp["company_profile"]
-    if not profile_path.exists() or force:
-        _write_yaml(profile_path, {
-            "company": {
-                "name_zh": config.get("company_name_zh", ""),
-                "name_en": config.get("company_name_en", ""),
-                "founded": None,
-                "size": None,
-                "location": None,
-            },
-            "qualifications": [],
-            "case_references": [],
-            "team": [],
-            "highlights": config.get("highlights", []) if isinstance(config.get("highlights"), list) else [config.get("highlights")] if config.get("highlights") else [],
-        })
+        _copy_seed_templates(kp["templates"], force=force)
 
-    _copy_seed_templates(kp["templates"], force=force)
+        # .version is written LAST so a crash mid-init leaves no marker
+        # and a re-run of --init will retry from the failed step.
+        version_file.write_text(VERSION, encoding="utf-8")
+    except OSError as e:
+        print(f"❌ 初始化失败：{e}", file=sys.stderr)
+        print(f"   PRESALES_HOME: {home}", file=sys.stderr)
+        print("   请检查权限和磁盘空间后重跑 --init", file=sys.stderr)
+        return 1
 
     print(f"✅ 初始化完成：{home}")
     print(f"   版本：{VERSION}")
@@ -142,21 +134,50 @@ def _copy_seed_templates(target_dir: Path, force: bool) -> None:
 
 
 def reset_home() -> int:
-    """Back up the existing PRESALES_HOME and remove it. Caller should re-run --init."""
+    """Back up PRESALES_HOME and remove it. Refuses unsafe paths (depth<3, $HOME, /).
+
+    Caller should re-run --init after a successful reset.
+    """
     home = presales_home()
     if not home.exists():
         print(f"ℹ️  {home} 不存在，无需重置")
         return 0
-    ts = datetime.now().strftime("%Y%m%d-%H%M%S")
+
+    # Catastrophic-path guard. Refuses to touch shallow paths, $HOME, or any
+    # well-known shared directory regardless of depth (e.g. /private/tmp on
+    # macOS is depth-3 but still a system shared directory).
+    if len(home.parts) < 3 or home == Path.home() or home in _UNSAFE_RESET_PATHS:
+        print(f"❌ 拒绝重置：PRESALES_HOME 指向不安全路径 {home}", file=sys.stderr)
+        print("   原因：路径过浅、等于 home，或位于系统共享目录列表。", file=sys.stderr)
+        print("   请检查 PRESALES_HOME 环境变量后重试。", file=sys.stderr)
+        return 1
+
+    # Microsecond-resolution timestamp for collision avoidance; fall back to
+    # an incrementing counter if a same-microsecond collision still occurs.
+    ts = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     backup = home.parent / f".presales.backup.{ts}"
-    shutil.move(str(home), str(backup))
+    counter = 0
+    while backup.exists():
+        counter += 1
+        backup = home.parent / f".presales.backup.{ts}.{counter}"
+
+    try:
+        shutil.move(str(home), str(backup))
+    except OSError as e:
+        print(f"❌ 备份失败：{e}", file=sys.stderr)
+        return 1
+
     print(f"✅ 已备份到 {backup}")
     print("   下一步：运行 /ps:setup 重新初始化")
     return 0
 
 
 def import_from(source: Path) -> int:
-    """Copy opportunities / cases / knowledge from another presales data dir."""
+    """Deep-merge opportunities / cases / knowledge from another presales data dir.
+
+    Walks each sub-tree recursively; skips individual files (not whole subdirs)
+    so empty placeholder dirs in target don't drop source files.
+    """
     if not source.exists():
         print(f"❌ 源目录不存在：{source}", file=sys.stderr)
         return 1
@@ -169,24 +190,30 @@ def import_from(source: Path) -> int:
     copied = 0
     skipped = 0
     for sub in ("opportunities", "cases", "knowledge"):
-        src = source / sub
-        if not src.exists():
+        src_root = source / sub
+        if not src_root.exists():
             continue
-        dst = home / sub
-        dst.mkdir(parents=True, exist_ok=True)
-        for item in src.iterdir():
-            target = dst / item.name
-            if target.exists():
-                print(f"⚠️  跳过已存在：{target}")
+        dst_root = home / sub
+        dst_root.mkdir(parents=True, exist_ok=True)
+
+        for src_file in src_root.rglob("*"):
+            if not src_file.is_file():
+                continue
+            rel = src_file.relative_to(src_root)
+            dst_file = dst_root / rel
+            if dst_file.exists():
+                print(f"⚠️  跳过已存在：{dst_file}")
                 skipped += 1
                 continue
-            if item.is_dir():
-                shutil.copytree(item, target)
-            else:
-                shutil.copy2(item, target)
+            dst_file.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                shutil.copy2(src_file, dst_file)
+            except OSError as e:
+                print(f"❌ 复制失败 {src_file}: {e}", file=sys.stderr)
+                return 1
             copied += 1
 
-    print(f"✅ 从 {source} 导入完成：复制 {copied} 项，跳过 {skipped} 项")
+    print(f"✅ 从 {source} 导入完成：复制 {copied} 个文件，跳过 {skipped} 个")
     return 0
 
 

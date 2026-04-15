@@ -129,3 +129,62 @@ P3 剩余：9 条（已应用 2，关闭 1）
 - 修剩余 P1 Python 层（#3 reset_home 守卫 / #4 import_from 深合并 / #5 .version 写入顺序）— 一个 commit 集中改 ps_setup.py
 - 装到本地 Claude Code 验证 skill 是否可被正确触发
 - 推 GitHub
+
+## Session: 2026-04-15 (cont.) — Python 必修 P1 修复 + ps_setup_utils.py 拆分
+
+### 决策
+- 用户选 option 1：修剩余 3 条 Python 必修 finding（#3 / #4 / #5），顺手带 KP-05 (init 异常处理) + C-06 (备份命名冲突)
+- Article IV 边界发现：直接添加 3 条修复后 ps_setup.py 涨到 334 行，超出 300 行限额。决定拆出 `scripts/ps_setup_utils.py` 容纳纯辅助函数 + 常量，保持主文件在限额内
+- 危险路径守卫初稿被 macOS 的 `/tmp → /private/tmp` resolve 绕过：单纯用 `len(parts) >= 3` 不够，补上显式危险路径集合 `_UNSAFE_RESET_PATHS`
+
+### 本次产出
+
+**新文件 `scripts/ps_setup_utils.py`（66 行）**：
+- 容纳纯辅助函数 + 常量：`VERSION`、`DEFAULT_DIRS`、`_UNSAFE_RESET_PATHS`、`_now_iso`、`_write_yaml`、`_normalize_highlights`
+- 不依赖 PRESALES_HOME 或任何项目状态，可独立单元测试
+
+**`scripts/ps_setup.py` 修复（334 → 300 行）**：
+
+- **Finding #5**：`init_skeleton` 写入顺序调整 — `.version` 移到所有 config / 模板写完之后；任何中间步骤抛 `OSError` 不会留下 `.version`，下次 `--init` 不会触发"已初始化"早退，而是重试
+- **Finding #5 (KP-05 顺带)**：`init_skeleton` 整个 try/except 包住，把 `OSError` 转为友好 stderr 提示 + return 1，调用方的 `rc != 0` 检查终于可达
+- **Finding #3**：`reset_home` 加 3 层守卫
+  1. `len(home.parts) < 3`（绝对深度防御）
+  2. `home == Path.home()`（防 $HOME）
+  3. `home in _UNSAFE_RESET_PATHS`（防 macOS `/tmp → /private/tmp` 这类 resolve 绕过）
+- **Finding #3 (C-06 顺带)**：备份命名加微秒精度 + collision counter，同秒双 reset 不再炸
+- **Finding #4**：`import_from` 改为 `rglob("*")` 深度遍历，逐文件复制；`target.exists()` 只跳过同名文件，不再吞掉整个已存在的子目录。修复了"`--init` 后 `knowledge/products/` 是空目录 → import 直接跳过，源 products/*.yaml 全部丢失"的数据丢失 bug
+
+**`scripts/ps_setup.py` 行数控制**：
+- 拆出 utils 后 273 → 248 行
+- 加 3 条修复后 248 → 311 行
+- `_UNSAFE_RESET_PATHS` 也搬到 utils + docstring 微调 → **300 行整**（卡限额）
+
+### 端到端验证（5 类全过）
+
+1. `--init` + `--check` 正常，`highlights` 字符串自动归一化为 list
+2. 幂等：重跑 `--init` 命中 "已初始化" 早退
+3. 危险路径全部拒绝：`/tmp`、`/var`、`/Users`、`$HOME`
+4. 深度合并 import：fresh `--init` 后 import 一份带 `knowledge/products/{a,b}.yaml` 的源，**4 个文件全部正确落到 target**（旧实现会丢 2 个 products）。再 import 一次跳过全部 4 个
+5. 安全路径下 `--reset` 仍正常备份 + 删除原目录
+
+### Review finding 状态更新
+
+本 session 关闭 **5 条 finding**：#3 / #4 / #5 / KP-05 / C-06
+
+P1 剩余：#2 / #7 / #11（3 条，从 6 → 3）
+P2 剩余：13（KP-05 关闭）
+P3 剩余：8（C-06 关闭）
+
+**首次跑真实 RFP 前必修清单**：✅ **全部完成**
+
+### 模块测试状态
+- ✅ `ps_setup.py` — 手工端到端验证 5 类场景全过；自动化测试仍待 v0.2
+- ✅ `ps_setup_utils.py` — 新文件，纯函数易测，v0.2 第一批补的 pytest 目标
+- ✅ `ps_paths.py` — 无变化，仍待 v0.2 自动化测试
+
+### 仍未触及
+- P1 #2 sys.path.insert → 包结构改造（涉及 scripts/__init__.py 和调用方式，单独 commit 处理）
+- P1 #7 缺 `rfp_validate.py`（等 schema 文件格式定下来）
+- P1 #11 `--check --format json`（独立小改，留作下次）
+- P2 全部 13 条 → v0.2 backlog
+- P3 8 条 → 低优先级
