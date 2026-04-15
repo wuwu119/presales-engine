@@ -42,85 +42,19 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
 
-def _try_yaml_dump(data: dict) -> str:
-    """Serialize to YAML. Prefers PyYAML, falls back to minimal in-house writer."""
+def _write_yaml(path: Path, data: dict) -> None:
+    """Serialize data as YAML and write to path. Requires PyYAML."""
     try:
         import yaml  # type: ignore
-        return yaml.safe_dump(data, allow_unicode=True, sort_keys=False, default_flow_style=False)
-    except ImportError:
-        return _fallback_yaml(data)
-
-
-def _fallback_yaml(data, indent: int = 0) -> str:
-    """Minimal YAML serializer used when PyYAML isn't installed.
-
-    Supports dict / list / scalars nested reasonably. Not a full YAML writer.
-    """
-    lines: list[str] = []
-    pad = "  " * indent
-
-    if isinstance(data, dict):
-        if not data:
-            return pad + "{}\n"
-        for k, v in data.items():
-            if isinstance(v, dict):
-                if not v:
-                    lines.append(f"{pad}{k}: {{}}")
-                else:
-                    lines.append(f"{pad}{k}:")
-                    lines.append(_fallback_yaml(v, indent + 1).rstrip("\n"))
-            elif isinstance(v, list):
-                if not v:
-                    lines.append(f"{pad}{k}: []")
-                else:
-                    lines.append(f"{pad}{k}:")
-                    for item in v:
-                        if isinstance(item, (dict, list)):
-                            inner = _fallback_yaml(item, indent + 1).rstrip("\n")
-                            first_line_pad = "  " * (indent + 1)
-                            inner_lines = inner.split("\n")
-                            inner_lines[0] = f"{first_line_pad[:-2]}- {inner_lines[0].lstrip()}"
-                            lines.extend(inner_lines)
-                        else:
-                            lines.append(f"{pad}  - {_fmt_scalar(item)}")
-            else:
-                lines.append(f"{pad}{k}: {_fmt_scalar(v)}")
-        return "\n".join(lines) + "\n"
-
-    if isinstance(data, list):
-        if not data:
-            return pad + "[]\n"
-        for item in data:
-            if isinstance(item, (dict, list)):
-                lines.append(f"{pad}-")
-                lines.append(_fallback_yaml(item, indent + 1).rstrip("\n"))
-            else:
-                lines.append(f"{pad}- {_fmt_scalar(item)}")
-        return "\n".join(lines) + "\n"
-
-    return pad + _fmt_scalar(data) + "\n"
-
-
-def _fmt_scalar(v) -> str:
-    if v is None:
-        return "null"
-    if isinstance(v, bool):
-        return "true" if v else "false"
-    if isinstance(v, (int, float)):
-        return str(v)
-    s = str(v)
-    if s == "":
-        return '""'
-    needs_quote = any(ch in s for ch in (":", "#", "\n", "'", '"', "{", "}", "[", "]", ",", "&", "*", "!", "|", ">", "%", "@", "`"))
-    if needs_quote or s.lstrip() != s:
-        escaped = s.replace("\\", "\\\\").replace('"', '\\"')
-        return f'"{escaped}"'
-    return s
-
-
-def _write_yaml(path: Path, data: dict) -> None:
+    except ImportError as e:
+        raise RuntimeError(
+            "presales-engine 需要 PyYAML 来写入 YAML 配置。请运行 `pip install pyyaml` 后重试。"
+        ) from e
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(_try_yaml_dump(data), encoding="utf-8")
+    path.write_text(
+        yaml.safe_dump(data, allow_unicode=True, sort_keys=False, default_flow_style=False),
+        encoding="utf-8",
+    )
 
 
 def init_skeleton(config: dict, force: bool = False) -> int:

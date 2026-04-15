@@ -33,8 +33,10 @@ fixtures/real-*/
 *.p12
 .env
 .env.local
-~/.presales/
 
 # Build artifacts
 *.log
 *.tmp
+
+# Local review / pipeline artifacts (compound-engineering ce-review, etc.)
+.context/

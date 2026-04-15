@@ -83,15 +83,11 @@ def seed_templates_dir() -> Path:
     return plugin_root() / "templates"
 
 
-def _as_str_dict(paths: dict[str, Path]) -> dict[str, str]:
-    return {k: str(v) for k, v in paths.items()}
-
-
 if __name__ == "__main__":
     # CLI debug entry: prints resolved paths as JSON.
     print(json.dumps({
         "presales_home": str(presales_home()),
         "plugin_root": str(plugin_root()),
         "seed_templates": str(seed_templates_dir()),
-        "knowledge": _as_str_dict(knowledge_paths()),
+        "knowledge": {k: str(v) for k, v in knowledge_paths().items()},
     }, indent=2, ensure_ascii=False))
