@@ -1,0 +1,39 @@
+# 产品 / 服务档案模板
+#
+# 用途：/ps:bid-draft 读取匹配 RFP 需求的产品能力
+# 使用：每个产品一个文件，文件名建议 {product-slug}.yaml
+# 位置：复制到 ~/.presales/knowledge/products/
+
+meta:
+  slug: example-product
+  name: 示例产品
+  name_en: Example Product
+  category: ""                  # SaaS / 本地部署 / 硬件 / 服务 / 咨询
+  status: active                # active / deprecated
+
+capabilities: []
+  # 功能点列表，每条必须可验证
+  # - name: 用户管理
+  #   description: "支持 10 万级用户的 RBAC 权限管理"
+  #   since_version: "2.0"
+
+technical:
+  architecture: ""              # 微服务 / 单体 / 云原生 / 其他
+  deployment: []                # cloud / on-premise / hybrid
+  integration: []               # 能对接的外部系统
+  programming_languages: []
+  databases: []
+
+delivery:
+  timeline_days: null           # 标准交付周期（天）
+  team_size: null               # 标准团队规模
+  methodology: ""               # 敏捷 / 瀑布 / 混合
+
+pricing:
+  model: ""                     # 一次性 / 订阅 / 按量 / 混合
+  base: null                    # 基础报价
+  unit: ""                      # 计价单位（年 / 次 / 用户）
+
+references: []
+  # 使用此产品的客户案例引用（指向 company-profile.case_references 的 id）
+  # - case_id: CASE-001

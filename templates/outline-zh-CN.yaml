@@ -1,0 +1,72 @@
+# 中文标书默认章节大纲
+#
+# 用途：/ps:bid-draft 读取此模板生成 outline.md
+# 说明：实际顺序会被 bid-draft 按 rfp.yaml 评分项权重重排
+# 位置：复制到 ~/.presales/templates/
+
+language: zh-CN
+
+chapters:
+  - id: "01-executive-summary"
+    title: 项目概述与响应总述
+    required: true
+    covers: [overall]
+    estimated_pages: 2
+
+  - id: "02-qualification-response"
+    title: 资格条件响应
+    required: true
+    covers: [qualifications, disqualifications]
+    estimated_pages: 3
+    notes: "逐条应答 RFP 资质条款和废标项"
+
+  - id: "03-requirement-compliance"
+    title: 需求符合性应答
+    required: true
+    covers: [requirements]
+    estimated_pages: 5
+    notes: "按 RFP 需求清单逐项响应，须明确标注响应程度（完全响应 / 部分响应 / 偏离）"
+
+  - id: "04-technical-solution"
+    title: 技术方案
+    required: true
+    covers: [tech]
+    estimated_pages: 15
+    notes: "核心得分章节，按评分权重细化"
+
+  - id: "05-implementation-plan"
+    title: 实施计划
+    required: true
+    covers: [timeline, delivery]
+    estimated_pages: 5
+
+  - id: "06-quality-assurance"
+    title: 质量保障措施
+    required: true
+    covers: [quality]
+    estimated_pages: 3
+
+  - id: "07-service-commitment"
+    title: 售后服务与运维承诺
+    required: true
+    covers: [service]
+    estimated_pages: 3
+
+  - id: "08-commercial"
+    title: 商务响应
+    required: true
+    covers: [commercial]
+    estimated_pages: 2
+
+  - id: "09-case-references"
+    title: 类似项目案例
+    required: false
+    covers: [cases]
+    estimated_pages: 5
+    notes: "按 RFP 行业偏好精选 3-5 个最相关案例"
+
+  - id: "10-team"
+    title: 项目团队配置
+    required: true
+    covers: [team]
+    estimated_pages: 3

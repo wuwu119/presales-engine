@@ -1,0 +1,16 @@
+# presales-engine 用户配置（种子模板）
+# 实际运行时由 ps:setup 根据交互问答填充，复制到 ~/.presales/config.yaml
+
+meta:
+  version: 0.1.0
+  initialized_at: ""
+
+company:
+  name_zh: ""
+  name_en: ""
+  industry: ""              # IT 服务 / 软件产品 / 硬件集成 / 咨询 / 其他
+  product_lines: []         # 主要产品线，字符串数组
+
+preferences:
+  language: zh-CN           # 标书默认语言：zh-CN / en
+  currency: CNY             # 默认货币：CNY / USD / EUR

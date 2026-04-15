@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# User data — 插件仓库禁止包含任何实际客户数据
+.presales/
+opportunities/
+test-data/
+fixtures/real-*/
+
+# Secrets
+*.key
+*.pem
+*.p12
+.env
+.env.local
+~/.presales/
+
+# Build artifacts
+*.log
+*.tmp

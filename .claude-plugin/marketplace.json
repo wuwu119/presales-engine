@@ -1,0 +1,34 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "presales-engine",
+  "owner": {
+    "name": "wuwu119",
+    "url": "https://github.com/wuwu119"
+  },
+  "metadata": {
+    "description": "售前复合引擎：从招标文件到标书生成的 Claude Code 插件",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "presales-engine",
+      "source": "./",
+      "description": "RFP 解析 + 战略分析 + 标书生成的最小闭环。首版聚焦应标场景（ps:setup / ps:rfp-parse / ps:rfp-analyze / ps:bid-draft），数据和程序分离，支持历史案例累积复用。",
+      "version": "0.1.0",
+      "author": {
+        "name": "wuwu119"
+      },
+      "homepage": "https://github.com/wuwu119/presales-engine",
+      "repository": "https://github.com/wuwu119/presales-engine",
+      "license": "MIT",
+      "category": "productivity",
+      "keywords": [
+        "presales",
+        "bid-response",
+        "rfp",
+        "tender",
+        "proposal-generation"
+      ]
+    }
+  ]
+}
