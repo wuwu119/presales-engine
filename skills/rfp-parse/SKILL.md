@@ -34,7 +34,7 @@ argument-hint: "<opportunity-slug> [--force]"
 
 ```bash
 SLUG="<slug>"
-HOME_DIR="${PRESALES_HOME:-$HOME/.presales}"
+HOME_DIR="${PRESALES_HOME:-$HOME/presales}"
 mkdir -p "$HOME_DIR/opportunities/$SLUG/rfp/original" \
          "$HOME_DIR/opportunities/$SLUG/analysis" \
          "$HOME_DIR/opportunities/$SLUG/draft/chapters"

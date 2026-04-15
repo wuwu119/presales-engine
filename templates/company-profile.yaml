@@ -2,7 +2,7 @@
 #
 # 用途：/ps:rfp-analyze 对照此文件判断我方是否满足 RFP 要求
 # 维护：建议持续累积，每次新投标的变化也更新回这里
-# 位置：初始化后复制到 ~/.presales/knowledge/company-profile.yaml
+# 位置：初始化后复制到 ~/presales/knowledge/company-profile.yaml（默认）或用户自选路径
 
 company:
   name_zh: ""

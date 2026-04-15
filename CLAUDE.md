@@ -5,7 +5,7 @@
 ## 三原则
 
 1. **LLM 做决策，脚本做体力活** — 判断类逻辑留给 skill，文件操作交给 `scripts/`
-2. **程序和数据严格分离** — 插件只读（`${CLAUDE_PLUGIN_ROOT}`），用户数据存 `${PRESALES_HOME}`（默认 `~/.presales/`）
+2. **程序和数据严格分离** — 插件只读（`${CLAUDE_PLUGIN_ROOT}`），用户数据存 `${PRESALES_HOME}`（默认 `~/presales/`）
 3. **每段标书可追溯** — `draft/chapters/*.md` 中每个段落必须对应 `rfp.yaml` 评分项或需求条目
 
 ## 架构
@@ -16,7 +16,7 @@
 
 | Skill | 触发 | 职责 |
 |-------|------|------|
-| `ps:setup` | 首次安装 / 升级 | 创建 `~/.presales/` 骨架、写初始配置、复制种子模板 |
+| `ps:setup` | 首次安装 / 升级 | 创建 `~/presales/` 骨架、写初始配置、复制种子模板 |
 | `ps:rfp-parse` | 收到招标文件 | RFP（PDF/Word/MD）结构化解析为 `rfp.yaml` |
 | `ps:rfp-analyze` | parse 完成后 | 战略分析：废标风险、评分杠杆、Go/No-Go 建议、信息缺口 |
 | `ps:bid-draft` | analyze 通过后 | 按章节生成标书草稿，每段追溯到 RFP 评分项 |
@@ -34,9 +34,9 @@ presales-engine/
 └── CLAUDE.md / README.md
 ```
 
-**数据**（`~/.presales/`，用户可写，不在 Git）：
+**数据**（`~/presales/`，用户可写，不在 Git）：
 ```
-~/.presales/
+~/presales/
 ├── .version                # 当前数据目录对应的插件版本
 ├── config.yaml             # 用户配置
 ├── opportunities/{slug}/   # 每个商机独立目录
@@ -45,18 +45,21 @@ presales-engine/
 └── templates/              # 用户自定义模板（覆盖种子）
 ```
 
-**环境变量**：`PRESALES_HOME` 可覆盖默认路径。
+**数据目录路径 resolution（3 层，优先级从高到低）**：
+1. `PRESALES_HOME` 环境变量（CI / 一次性覆盖）
+2. `~/.config/presales-engine/home` 指针文件（由 `ps:setup --home <path>` 持久化）
+3. 默认 `~/presales/`（无前导点，可见目录）
 
 ### 路径约定
 
 - `PLUGIN_ROOT` = `${CLAUDE_PLUGIN_ROOT}`（Claude Code 注入）
-- `PRESALES_HOME` = 环境变量，默认 `~/.presales/`
+- `PRESALES_HOME` = 用户数据根，三层 resolution 见上，默认 `~/presales/`
 - 所有脚本通过 `scripts/ps_paths.py` 解析路径，**禁止硬编码**
 
 ### Opportunity 目录契约
 
 ```
-~/.presales/opportunities/{slug}/
+~/presales/opportunities/{slug}/
 ├── meta.yaml               # 基本信息（客户、项目、截止日期、状态）
 ├── rfp/
 │   ├── original/           # 原始招标文件（PDF/Word/扫描件）

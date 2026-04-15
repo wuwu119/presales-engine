@@ -2,7 +2,7 @@
 #
 # 用途：/ps:bid-draft 读取此模板生成 outline.md
 # 说明：实际顺序会被 bid-draft 按 rfp.yaml 评分项权重重排
-# 位置：复制到 ~/.presales/templates/
+# 位置：复制到 ~/presales/templates/（默认）或用户自选路径
 
 language: zh-CN
 

@@ -1,5 +1,5 @@
 # presales-engine 用户配置（种子模板）
-# 实际运行时由 ps:setup 根据交互问答填充，复制到 ~/.presales/config.yaml
+# 实际运行时由 ps:setup 根据交互问答填充，复制到 ~/presales/config.yaml（默认）或用户自选路径
 
 meta:
   version: 0.1.0

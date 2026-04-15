@@ -8,7 +8,7 @@ Invoked by ps:setup skill (never by the user directly).
 
 Modes:
     --init                  create directory skeleton, write config from --config-json
-    --reset                 backup PRESALES_HOME to ~/.presales.backup.<ts>
+    --reset                 backup PRESALES_HOME to <parent>/<name>.backup.<ts>
     --import <path>         copy opportunities/cases/knowledge from another dir
     --check                 print current state, make no changes
 """
@@ -17,14 +17,15 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 # Local imports from same scripts/ directory
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ps_paths import knowledge_paths, plugin_root, presales_home, seed_templates_dir  # noqa: E402
+from ps_paths import (knowledge_paths, plugin_root, presales_home, presales_home_source, seed_templates_dir, write_pointer)  # noqa: E402
 from ps_setup_utils import (  # noqa: E402
     DEFAULT_DIRS,
     VERSION,
@@ -36,12 +37,9 @@ from ps_setup_utils import (  # noqa: E402
 
 
 def init_skeleton(config: dict, force: bool = False) -> int:
-    """Create directory skeleton, write config and seed templates. Idempotent.
+    """Create directory skeleton, write configs and seed templates.
 
-    Write order: directories → config files → seed templates → .version (last).
-    Writing .version last means a partial-init crash leaves no version marker,
-    so re-running --init will retry the failed step instead of short-circuiting
-    with "already initialized".
+    Idempotent. Writes .version last so partial-init crashes stay recoverable.
     """
     home = presales_home()
     kp = knowledge_paths()
@@ -105,15 +103,10 @@ def init_skeleton(config: dict, force: bool = False) -> int:
         print("   请检查权限和磁盘空间后重跑 --init", file=sys.stderr)
         return 1
 
-    print(f"✅ 初始化完成：{home}")
-    print(f"   版本：{VERSION}")
-    print(f"   config：{config_path}")
-    print(f"   company-profile：{profile_path}")
-    print("")
-    print("下一步：")
-    print(f"  1. 把 RFP 文件放到 {home}/opportunities/<项目名>/rfp/original/")
-    print("  2. 运行 /ps:rfp-parse <项目名>")
-    print(f"  3. 按需补充 {profile_path}（案例、资质、团队）")
+    print(f"✅ 初始化完成：{home} (v{VERSION})")
+    print(f"   config: {config_path}")
+    print(f"   company-profile: {profile_path}")
+    print(f"下一步：把 RFP 放到 {home}/opportunities/<项目名>/rfp/original/ 后运行 /ps:rfp-parse <项目名>")
     return 0
 
 
@@ -134,10 +127,7 @@ def _copy_seed_templates(target_dir: Path, force: bool) -> None:
 
 
 def reset_home() -> int:
-    """Back up PRESALES_HOME and remove it. Refuses unsafe paths (depth<3, $HOME, /).
-
-    Caller should re-run --init after a successful reset.
-    """
+    """Back up PRESALES_HOME and remove it. Refuses unsafe paths (depth<3, $HOME, /)."""
     home = presales_home()
     if not home.exists():
         print(f"ℹ️  {home} 不存在，无需重置")
@@ -154,12 +144,14 @@ def reset_home() -> int:
 
     # Microsecond-resolution timestamp for collision avoidance; fall back to
     # an incrementing counter if a same-microsecond collision still occurs.
+    # Backup name is derived from the home dir name, so it lands next to the
+    # source rather than always being called ".presales.backup.*".
     ts = datetime.now().strftime("%Y%m%d-%H%M%S-%f")
-    backup = home.parent / f".presales.backup.{ts}"
+    backup = home.parent / f"{home.name}.backup.{ts}"
     counter = 0
     while backup.exists():
         counter += 1
-        backup = home.parent / f".presales.backup.{ts}.{counter}"
+        backup = home.parent / f"{home.name}.backup.{ts}.{counter}"
 
     try:
         shutil.move(str(home), str(backup))
@@ -221,6 +213,7 @@ def check_status() -> int:
     """Print current state without modifying anything."""
     home = presales_home()
     print(f"PRESALES_HOME: {home}")
+    print(f"  source: {presales_home_source()} (env / pointer / default)")
     print(f"  exists: {home.exists()}")
     if not home.exists():
         print("  状态: 未初始化（运行 /ps:setup）")
@@ -239,16 +232,10 @@ def check_status() -> int:
     for name, path in (("config", kp["config"]), ("company_profile", kp["company_profile"])):
         print(f"  {name}: {'✅' if path.exists() else '❌ 缺失'} {path}")
 
-    opps = kp["opportunities"]
-    if opps.exists():
-        count = sum(1 for item in opps.iterdir() if item.is_dir())
-        print(f"  opportunities: {count} 个")
-
-    cases = kp["cases"]
-    if cases.exists():
-        count = sum(1 for item in cases.iterdir() if item.is_dir())
-        print(f"  cases: {count} 个")
-
+    if kp["opportunities"].exists():
+        print(f"  opportunities: {sum(1 for i in kp['opportunities'].iterdir() if i.is_dir())} 个")
+    if kp["cases"].exists():
+        print(f"  cases: {sum(1 for i in kp['cases'].iterdir() if i.is_dir())} 个")
     print(f"  plugin_root: {plugin_root()}")
     return 0
 
@@ -262,6 +249,7 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--reset", action="store_true", help="备份并重置数据目录")
     parser.add_argument("--import", dest="import_path", help="从另一个数据目录导入")
     parser.add_argument("--check", action="store_true", help="检查当前状态")
+    parser.add_argument("--home", help="指定数据存放路径（持久化到 ~/.config/presales-engine/home）")
     parser.add_argument("--config-json", default="{}", help="初始化配置（JSON 字符串）")
     parser.add_argument("--force", action="store_true", help="覆盖已存在的文件")
     return parser.parse_args(argv)
@@ -273,6 +261,15 @@ def main(argv: list[str] | None = None) -> int:
     if not any([args.init, args.reset, args.import_path, args.check]):
         print("❌ 必须指定操作：--init | --reset | --import <path> | --check", file=sys.stderr)
         return 1
+
+    # --home is only meaningful with --init; persists the path and overrides for this process
+    if args.home:
+        if not args.init:
+            print("❌ --home 只能和 --init 一起使用", file=sys.stderr)
+            return 1
+        home_path = Path(args.home).expanduser().resolve()
+        write_pointer(home_path)
+        os.environ["PRESALES_HOME"] = str(home_path)
 
     if args.check:
         return check_status()

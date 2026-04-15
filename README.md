@@ -11,7 +11,7 @@
 - 🔍 **RFP 智能解析** — PDF / Word / Markdown 招标文件结构化为 YAML（评分项 / 废标项 / 需求清单 / 时间节点 / 资质要求）
 - 🎯 **战略分析** — 自动扫描废标风险、识别评分杠杆、给出 Go/No-Go 决策矩阵
 - ✍️ **标书生成** — 分章节生成草稿，每段可追溯到 RFP 评分项，防止自嗨式方案
-- 🗄️ **数据程序分离** — 插件只读，用户数据存于 `~/.presales/`，便于备份、迁移、多机同步
+- 🗄️ **数据程序分离** — 插件只读，用户数据存于 `~/presales/`，便于备份、迁移、多机同步
 - 📚 **知识累积** — 历史案例、复盘结论逐步沉淀，作为未来投标的参考
 
 ## 安装
@@ -39,18 +39,22 @@ git clone https://github.com/wuwu119/presales-engine.git ~/代码库/presales-en
 /ps:setup
 ```
 
-交互式问答：公司名、行业、产品线、默认语言。执行后：
-- 生成 `~/.presales/` 目录骨架
+交互式问答：**数据存放位置（默认 `~/presales/`，可改）**、公司名、行业、产品线、默认语言。执行后：
+- 在你选的位置生成目录骨架（默认 `~/presales/`，可见目录方便手工编辑）
 - 写入 `config.yaml` 和 `company-profile.yaml`
-- 复制种子模板到 `~/.presales/templates/`
+- 复制种子模板
+- 把所选路径持久化到 `~/.config/presales-engine/home`（指针文件，下次自动用）
 
-想换数据目录？设置环境变量 `PRESALES_HOME=/custom/path`。
+**想换位置**？三种方式：
+- 交互式 setup 时直接回答 Q1
+- 命令行：`python3 ps_setup.py --init --home /your/path --config-json '{}'`
+- 一次性覆盖（不持久化）：设置环境变量 `PRESALES_HOME=/custom/path`
 
 ### 2. 解析招标文件
 
 ```bash
-mkdir -p ~/.presales/opportunities/acme-2026/rfp/original
-cp /path/to/招标文件.pdf ~/.presales/opportunities/acme-2026/rfp/original/
+mkdir -p ~/presales/opportunities/acme-2026/rfp/original
+cp /path/to/招标文件.pdf ~/presales/opportunities/acme-2026/rfp/original/
 ```
 
 然后运行：
@@ -91,10 +95,10 @@ cp /path/to/招标文件.pdf ~/.presales/opportunities/acme-2026/rfp/original/
 
 ## 数据目录
 
-所有用户数据存储在 `~/.presales/`（可通过 `PRESALES_HOME` 环境变量覆盖）：
+所有用户数据存储在 `~/presales/`（可通过 `PRESALES_HOME` 环境变量覆盖）：
 
 ```
-~/.presales/
+~/presales/
 ├── .version                    # 插件版本号
 ├── config.yaml                 # 用户配置
 ├── opportunities/              # 商机目录（每个项目一个子目录）
@@ -110,13 +114,13 @@ cp /path/to/招标文件.pdf ~/.presales/opportunities/acme-2026/rfp/original/
 └── templates/                  # 用户自定义模板
 ```
 
-**插件本身不存储任何用户数据**，卸载插件不影响 `~/.presales/`。
+**插件本身不存储任何用户数据**，卸载插件不影响 `~/presales/`。
 
 ## 隐私和安全
 
-- 所有 RFP、方案、客户信息保留在本地 `~/.presales/`
-- 插件仓库 `.gitignore` 排除 `.presales/` 和 `opportunities/`
-- 建议 `~/.presales/` 单独备份，不要 commit 到任何仓库
+- 所有 RFP、方案、客户信息保留在本地 `~/presales/`
+- 插件仓库 `.gitignore` 排除 `presales/`、`.presales/`（v0.1 旧默认）和 `opportunities/`
+- 建议 `~/presales/` 单独备份，不要 commit 到任何仓库
 
 ## 开发路线
 

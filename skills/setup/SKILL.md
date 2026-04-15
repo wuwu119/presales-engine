@@ -1,7 +1,7 @@
 ---
 name: ps:setup
-description: 初始化 presales-engine 用户数据目录。首次使用必须运行，创建 ~/.presales/ 骨架、config.yaml 和种子模板。支持 --reset 重置和 --import 从旧数据目录导入。当用户说"初始化售前"、"ps setup"、"presales 初始化"、"配置 presales-engine"时触发。
-argument-hint: "[--reset] [--import <path>] [--check]"
+description: 初始化 presales-engine 用户数据目录。首次使用必须运行，默认在 ~/presales/ 创建骨架、config.yaml 和种子模板，支持 --home 指定其他位置。支持 --reset 重置和 --import 从旧数据目录导入。当用户说"初始化售前"、"ps setup"、"presales 初始化"、"配置 presales-engine"时触发。
+argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
 ---
 
 # ps:setup — 初始化用户数据目录
@@ -15,13 +15,23 @@ argument-hint: "[--reset] [--import <path>] [--check]"
 
 ## 行为契约
 
-1. 解析 `PRESALES_HOME`（默认 `~/.presales/`）
+1. 解析数据目录路径（三层 resolution，顺序见下）
 2. 根据场景分支：
    - `--check`：只打印当前状态，不做任何修改
    - `--reset`：二次确认 → 调用脚本备份旧目录 → 重新创建
    - `--import <path>`：先确保已 init，再从指定路径复制数据
    - 默认：若目录已存在且 `.version` 匹配 → 提示"已初始化"直接退出；否则进入交互式问答 → `--init`
 3. 所有文件系统操作**必须**通过 `scripts/ps_setup.py`，禁止在 skill 内手写 `mkdir` 或 `cat >`
+
+### 数据目录路径 resolution（3 层）
+
+| 优先级 | 来源 | 用途 |
+|--------|------|------|
+| 1 (最高) | 环境变量 `PRESALES_HOME` | CI / 一次性覆盖 / 高级用户 |
+| 2 | 指针文件 `~/.config/presales-engine/home` | 由 `ps:setup --home <path>` 持久化 |
+| 3 (默认) | `~/presales/` | **可见目录**，方便用户手工编辑 |
+
+`--home <path>` 标志会写入指针文件并对当前 init 生效。后续所有 skill 自动遵循。
 
 ## 调用模式
 
@@ -34,8 +44,11 @@ argument-hint: "[--reset] [--import <path>] [--check]"
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
   --init \
+  --home /Users/<you>/presales \
   --config-json '{"company_name_zh":"...","industry":"IT 服务",...}'
 ```
+
+`--home` 可省略（默认 `~/presales/`）。如果省略，脚本仍按 3 层 resolution 解析路径。
 
 **`--config-json` 字段约定**：
 
@@ -57,32 +70,35 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
 
 | 序 | 问题 | 类型 | 必填 |
 |----|------|------|------|
-| 1 | 公司中文名称 | 文本 | ✅ |
-| 2 | 公司英文名称 | 文本 | ❌ |
-| 3 | 所在行业 | 单选：IT 服务 / 软件产品 / 硬件集成 / 咨询 / 其他 | ✅ |
-| 4 | 主要产品线（自由输入，逗号分隔） | 文本 | ✅ |
-| 5 | 默认语言 | 单选：zh-CN / en | ✅ |
-| 6 | 默认货币 | 单选：CNY / USD / EUR / 其他 | ✅ |
-| 7 | 公司能力亮点（一段话，可跳过） | 文本 | ❌ |
+| 1 | **数据存放位置**（默认 `~/presales/`，可改成任意可写目录） | 文本 | ✅ |
+| 2 | 公司中文名称 | 文本 | ✅ |
+| 3 | 公司英文名称 | 文本 | ❌ |
+| 4 | 所在行业 | 单选：IT 服务 / 软件产品 / 硬件集成 / 咨询 / 其他 | ✅ |
+| 5 | 主要产品线（自由输入，逗号分隔） | 文本 | ✅ |
+| 6 | 默认语言 | 单选：zh-CN / en | ✅ |
+| 7 | 默认货币 | 单选：CNY / USD / EUR / 其他 | ✅ |
+| 8 | 公司能力亮点（一段话，可跳过） | 文本 | ❌ |
 
-收集完毕后组装成 `--config-json` 走 A 路径调用脚本。**禁止在 skill 内手写 `mkdir` 或 `cat >`**。
+Q1 的回答传给 `--home <path>`（脚本会写入指针文件持久化）；Q2-Q8 组装成 `--config-json`，走 A 路径调用脚本。**禁止在 skill 内手写 `mkdir` 或 `cat >`**。
 
 ## 其他脚本调用
 
 ```bash
-# 检查状态（人类可读 prose；--format json 见 v0.2 路标）
+# 检查状态（输出包含 source 层：env / pointer / default）
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" --check
 
-# 重置（脚本内部会备份到 ~/.presales.backup.<timestamp>）
+# 重置（备份到 <home>.backup.<timestamp>，命名跟随 home dir 名）
 # ⚠️ v0.1 无 --yes 标志，agent 调用前必须二次确认
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" --reset
 
-# 从旧目录导入
+# 从旧目录导入（深度合并，文件级跳过已存在）
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" --import /path/to/old-presales
 
 # 强制覆盖已存在的 config.yaml / company-profile.yaml（迁移或修复用）
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" --init --config-json '<json>' --force
 ```
+
+`--home` 只能与 `--init` 一起使用。`--reset` / `--import` / `--check` 都基于当前 resolution 解析的 home。
 
 `--force` 行为：
 - 不带：`config.yaml` / `company-profile.yaml` 已存在则跳过写入（保护用户已编辑的内容）

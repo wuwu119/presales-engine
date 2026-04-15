@@ -1,11 +1,16 @@
 #!/usr/bin/env python3
 # INPUT: os.environ, pathlib
 # OUTPUT: PRESALES_HOME / CLAUDE_PLUGIN_ROOT / opportunity / knowledge path resolution
-# POS: path resolution utility shared by all presales-engine scripts. Forbidden to hardcode ~/.presales/.
+# POS: path resolution utility shared by all presales-engine scripts. Forbidden to hardcode any presales home path.
 """Unified path resolution for presales-engine.
 
+Resolution order for the user data root:
+    1. PRESALES_HOME env var (highest priority — for CI / one-shot overrides)
+    2. Pointer file at ~/.config/presales-engine/home (set during ps:setup --init)
+    3. Default ~/presales/ (visible, not hidden, intended for daily user editing)
+
 Environment variables:
-    PRESALES_HOME:      user data root, default ~/.presales/
+    PRESALES_HOME:      user data root override
     CLAUDE_PLUGIN_ROOT: plugin root (injected by Claude Code at runtime)
 """
 
@@ -16,12 +21,47 @@ import os
 from pathlib import Path
 
 
+def _config_pointer_path() -> Path:
+    """Path of the persistent home-pointer file. Set by ps:setup --init."""
+    return Path.home() / ".config" / "presales-engine" / "home"
+
+
+def _read_pointer() -> Path | None:
+    """Read the pointer file. Returns None if missing or empty."""
+    pointer = _config_pointer_path()
+    if not pointer.exists():
+        return None
+    content = pointer.read_text(encoding="utf-8").strip()
+    if not content:
+        return None
+    return Path(content).expanduser().resolve()
+
+
+def write_pointer(path: Path) -> None:
+    """Persist the user's chosen presales home to the pointer file."""
+    pointer = _config_pointer_path()
+    pointer.parent.mkdir(parents=True, exist_ok=True)
+    pointer.write_text(str(Path(path).expanduser().resolve()), encoding="utf-8")
+
+
 def presales_home() -> Path:
-    """Return user data root. Respects PRESALES_HOME, defaults to ~/.presales/."""
-    home = os.environ.get("PRESALES_HOME")
-    if home:
-        return Path(home).expanduser().resolve()
-    return (Path.home() / ".presales").resolve()
+    """Return the user data root via the documented 3-layer resolution."""
+    env = os.environ.get("PRESALES_HOME")
+    if env:
+        return Path(env).expanduser().resolve()
+    pointer = _read_pointer()
+    if pointer is not None:
+        return pointer
+    return (Path.home() / "presales").resolve()
+
+
+def presales_home_source() -> str:
+    """Return which resolution layer produced presales_home(): env / pointer / default."""
+    if os.environ.get("PRESALES_HOME"):
+        return "env"
+    if _read_pointer() is not None:
+        return "pointer"
+    return "default"
 
 
 def plugin_root() -> Path:
@@ -87,6 +127,8 @@ if __name__ == "__main__":
     # CLI debug entry: prints resolved paths as JSON.
     print(json.dumps({
         "presales_home": str(presales_home()),
+        "presales_home_source": presales_home_source(),
+        "pointer_file": str(_config_pointer_path()),
         "plugin_root": str(plugin_root()),
         "seed_templates": str(seed_templates_dir()),
         "knowledge": {k: str(v) for k, v in knowledge_paths().items()},

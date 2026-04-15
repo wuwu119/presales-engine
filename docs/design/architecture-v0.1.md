@@ -4,7 +4,7 @@
 
 ## 1. 设计目标
 
-1. **程序和数据严格分离** — 插件只读（`${CLAUDE_PLUGIN_ROOT}`），数据可写（`${PRESALES_HOME}` 默认 `~/.presales/`）。卸载插件不影响用户数据。
+1. **程序和数据严格分离** — 插件只读（`${CLAUDE_PLUGIN_ROOT}`），数据可写（`${PRESALES_HOME}` 默认 `~/presales/`）。卸载插件不影响用户数据。
 2. **最小闭环优先** — v0.1 只做应标链路，一个 opportunity 能从 RFP 走到标书草稿。
 3. **每段标书可追溯** — `draft/chapters/*.md` 中每个段落必须对应 `rfp.yaml` 评分项或需求条目。
 4. **知识累积反哺** — 历史 opportunity 归档到 `cases/`，未来 skill 可检索。
@@ -15,9 +15,17 @@
 | 变量 | 含义 | 默认值 | 来源 |
 |------|------|--------|------|
 | `PLUGIN_ROOT` | 插件根目录（只读） | - | Claude Code 注入 `${CLAUDE_PLUGIN_ROOT}` |
-| `PRESALES_HOME` | 用户数据根目录（可写） | `~/.presales/` | 环境变量 |
+| `PRESALES_HOME` | 用户数据根目录（可写） | `~/presales/` | 三层 resolution，见下 |
 
-统一由 `scripts/ps_paths.py` 解析，**禁止硬编码**。
+**`PRESALES_HOME` 三层 resolution**（优先级从高到低）：
+
+1. `PRESALES_HOME` 环境变量 — CI / 一次性覆盖 / 高级用户
+2. 指针文件 `~/.config/presales-engine/home` — 由 `ps:setup --init --home <path>` 持久化用户的选择
+3. 默认 `~/presales/` — 无前导点，可见于 Finder/`ls`，便于用户手工编辑
+
+统一由 `scripts/ps_paths.py` 的 `presales_home()` 解析。**禁止硬编码任何 presales 路径**。
+
+**指针文件设计**：单行纯文本文件，内容为绝对路径。由 `ps_setup.py --init --home <path>` 写入；删除该文件即回退到默认路径。环境变量优先于指针文件，便于临时切换数据目录。
 
 ## 3. 用户数据目录契约
 

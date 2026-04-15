@@ -2,7 +2,7 @@
 #
 # 用途：/ps:bid-draft 读取匹配 RFP 需求的产品能力
 # 使用：每个产品一个文件，文件名建议 {product-slug}.yaml
-# 位置：复制到 ~/.presales/knowledge/products/
+# 位置：复制到 ~/presales/knowledge/products/（默认）或用户自选路径
 
 meta:
   slug: example-product

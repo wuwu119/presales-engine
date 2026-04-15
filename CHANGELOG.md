@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+### 变更
+- **默认数据目录从 `~/.presales/` 改为 `~/presales/`**（无前导点，可见于 Finder/`ls`）
+- `ps:setup` 新增 `--home <path>` 标志，允许首次初始化时指定数据目录
+- 新增三层 resolution：`PRESALES_HOME` 环境变量 > `~/.config/presales-engine/home` 指针文件 > `~/presales/` 默认
+- `--reset` 备份命名从硬编码 `.presales.backup.<ts>` 改为 `<home-name>.backup.<ts>`，跟随 home 目录命名
+
 ## [0.1.0] - 2026-04-15
 
 ### 新增

@@ -188,3 +188,80 @@ P3 剩余：8（C-06 关闭）
 - P1 #11 `--check --format json`（独立小改，留作下次）
 - P2 全部 13 条 → v0.2 backlog
 - P3 8 条 → 低优先级
+
+## Session: 2026-04-15 (cont.) — UX 修复：可见默认目录 + 自定义路径
+
+### 决策
+- 用户反馈两个 UX 漏洞：
+  1. 默认 `~/.presales/` 是隐藏目录，用户要手工编辑 yaml 和 RFP，不该藏起来
+  2. 没有交互方式让用户选择数据存放位置（只能改环境变量，对人类不友好）
+- 修法：默认改 `~/presales/`（无前导点）+ 加 `--home <path>` flag + 持久化指针文件 + 三层 resolution
+
+### 设计：3 层 resolution
+```
+1. PRESALES_HOME 环境变量              # CI / 一次性覆盖（最高优先级）
+2. ~/.config/presales-engine/home    # 指针文件，由 ps:setup --init --home 写入
+3. ~/presales/                       # 默认（无 dot，可见）
+```
+
+### 本次产出
+
+**`scripts/ps_paths.py`（93 → 135 行）**：
+- 新增 `_config_pointer_path` / `_read_pointer` / `write_pointer` / `presales_home_source`
+- `presales_home()` 改成三层 resolution
+- 默认从 `~/.presales/` 改为 `~/presales/`
+- `__main__` debug 输出加 source 层 + 指针文件路径
+
+**`scripts/ps_setup.py`（300 → 297 行，仍卡限）**：
+- 新增 `--home <path>` CLI 标志
+- `main()` 处理 --home：写指针文件 + `os.environ["PRESALES_HOME"]` 覆盖（限 --init 配合使用）
+- `check_status()` 输出加 source 层（env / pointer / default）
+- `reset_home()` backup 命名从硬编码 `.presales.backup.<ts>` 改为 `<home.name>.backup.<ts>`，跟随实际 home 目录命名
+- 为了腾出 line budget，trim 了 init_skeleton docstring + "下一步" 打印块 + reset_home docstring + check_status 的 opportunities/cases 计数循环
+
+**`skills/setup/SKILL.md`（134 → 150 行）**：
+- 重写"行为契约"段：加 3 层 resolution 表
+- 交互式 Q&A 加 Q1 "数据存放位置（默认 `~/presales/`，可改）"，原 7 题顺延为 Q2-Q8
+- 非交互调用 A 路径示例加 `--home` 标志
+- 描述字段 + argument-hint 同步加 `--home`
+- "其他脚本调用"段 backup 命名注释更新
+
+**文档全量替换 `~/.presales/` → `~/presales/`**：
+- README.md（10 处 + 调整 quickstart 描述）
+- CLAUDE.md（6 处 + 路径约定段重写为 3 层 resolution）
+- docs/design/architecture-v0.1.md（2 处 + §2 路径约定段加 3 层 resolution + 指针文件设计说明）
+- skills/rfp-parse/SKILL.md（Phase 0 bash example）
+- 4 个 templates/*.yaml（顶部注释）
+
+**保留为历史的 `.presales` 引用**：
+- progress.md 旧 session 条目
+- CHANGELOG.md v0.1.0 条目
+- ps_setup.py 注释（设计决策说明）
+- .gitignore 保留 `.presales/` 行做防御，新增 `presales/` 行
+
+**.gitignore**：加 `presales/` 行，保留 `.presales/` 防御老用户
+
+**CHANGELOG.md**：新增 Unreleased 段，记录 4 项变更
+
+### 端到端验证（5 类全过）
+
+```
+✓ 默认 → ~/presales/，source=default
+✓ --home 指定 + 写 pointer + init 落盘到自定义路径
+✓ pointer 落盘后再次 check，source=pointer
+✓ env 优先于 pointer：PRESALES_HOME=/x check 返回 /x，source=env
+✓ --home 必须配 --init（其他模式拒绝）
+✓ pointer 指向 /tmp 时仍触发危险路径守卫
+✓ pointer 指向自定义路径时 reset 仍正常
+✓ backup 命名跟随 home name：/tmp/foo → /tmp/foo.backup.<ts>
+✓ 删除 pointer 后回退到默认
+```
+
+### 模块测试状态（无变化）
+- ✅ ps_setup.py / ps_paths.py / ps_setup_utils.py — 手工端到端验证；自动化测试仍待 v0.2
+
+### 下一步候选
+- 推 GitHub
+- 装本地 Claude Code 验证新流程（你刚才已经验过基本加载）
+- 跑真实 RFP 端到端
+- 修剩余 P1 #2 / #7 / #11
