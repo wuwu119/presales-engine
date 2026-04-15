@@ -213,11 +213,15 @@ parsing_meta:
 
 ## 8. 未来演进（非本版本）
 
-| 版本 | 新增 skill | 新增脚本 |
-|------|-----------|---------|
-| v0.2 | `ps:bid-review`（合规 + 多角色批判）、`ps:bid-qa`（澄清问答） | `bid_coverage.py`、`compliance_check.py` |
-| v0.3 | `ps:case-match`（历史案例检索）、`ps:competitor-scan` | `case_index.py` |
-| v1.0 | 完整售前闭环：`ps:intake` → `ps:discover` → `ps:ideate` → `ps:plan` → `ps:draft` → `ps:review` → `ps:price` → `ps:retrospect` | 完整知识库检索栈 |
+v0.2 / v0.3 / v1.0 的完整 skill 清单、数据回路设计、建设优先级见 `docs/design/skill-catalog.md`。该文档是产品路线图的单一事实来源；本文档只覆盖 v0.1 的实现契约。
+
+关键摘要：
+
+| 版本 | 核心目标 | 关键 skill（v0.1 不实现） |
+|------|---------|--------------------------|
+| v0.2 | 质量门槛 + 知识资产基础 | `ps:knowledge-ingest`（先定设计） / `ps:retrospect` / `ps:bid-review` / `ps:bid-compliance` / `ps:status` / `ps:price` / `ps:bid-qa` |
+| v0.3 | pre-RFP 深度 + 知识复利 | `ps:intake` / `ps:discover` / `ps:qualify` / `ps:solution-ideate` / `ps:solution-plan` / `ps:case-match` / `ps:competitor-scan` |
+| v1.0 | 主动性 + 关系管理 | `ps:lead-scan` / `ps:bid-negotiate` / `ps:objection-lib` / `ps:account-*` / `ps:doctor` |
 
 ## 9. 架构约束（硬规则）
 

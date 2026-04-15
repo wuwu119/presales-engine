@@ -130,9 +130,10 @@ presales-engine/
 
 只写接口契约（签名 / IO / 约束），禁止写实现代码。
 
-| 文档 | 位置 |
-|------|------|
-| 架构总览 v0.1 | `docs/design/architecture-v0.1.md` |
+| 文档 | 位置 | 职责 |
+|------|------|------|
+| 架构总览 v0.1 | `docs/design/architecture-v0.1.md` | 当前实现契约 + schema + 架构约束 |
+| 完整 skill 目录 + 路线图 | `docs/design/skill-catalog.md` | 售前全生命周期所有 skill + v0.2/v0.3/v1.0 分阶段 + 数据回路设计 |
 
 ## Changelog
 

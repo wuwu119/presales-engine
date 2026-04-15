@@ -442,3 +442,50 @@ PRESALES_HOME=/tmp/ps-zh-final python3 scripts/ps_setup.py --init --config-json 
 - `progress.md` 历史 session 条目保留英文（历史记录）
 - `CHANGELOG.md` 历史 `[0.1.0]` 条目保留（历史）
 - `.gitignore` 老 pattern 保留（防御性）
+
+## Session: 2026-04-15 (cont.) — 推 GitHub + 完整 skill 目录路线图
+
+### 决策
+- 推 GitHub：`gh repo create wuwu119/presales-engine --public --source=. --remote=origin --push`，11 commits 一次性推上，状态最干净的时候固化
+- 写完整 skill 目录 + 路线图文档，覆盖从 v0.1 到 v1.0 所有 ~24 个 skill，作为产品路线图的单一事实来源
+
+### 本次产出
+
+**GitHub 仓库上线**：
+- 地址：https://github.com/wuwu119/presales-engine（public）
+- Remote origin 已配置，main 跟踪 origin/main
+- 任何 Claude Code 实例可以 `/plugin marketplace add wuwu119/presales-engine` 安装
+
+**新文档 `docs/design/skill-catalog.md`（361 行）**：
+- §1 设计思想：compound 数据回路（每次 retrospect 沉淀知识反哺下一次）
+- §2 完整生命周期全景图（ASCII 流水线：线索→挖掘→决策→方案→产出→提交后→复盘）
+- §3 Pipeline Skills 分 7 段：前置 / 需求挖掘 / RFP / 方案设计 / 标书产出 / 提交后 / 复盘，逐个列 skill 职责 + IO + 版本标记
+- §4 知识资产 cross-cutting（knowledge-ingest / case-match / competitor-scan / objection-lib）
+- §5 Meta 系统级（setup / status / doctor）
+- §6 客户关系（account-profile / account-update / relationship-map）
+- §7 版本路线图：v0.1 ✅ / v0.2 / v0.3 / v1.0 每版本的目标 + 技术栈
+- §8 v0.2 建设优先级（ROI × 依赖排序）：knowledge-ingest > retrospect > bid-review > bid-compliance > status > bid-qa > price
+- §9 不纳入 v1.0 的能力（CRM / 项目交付 / ERP），明确边界
+- §10 架构一致性约束（从 v0.1 继承到所有后续 skill 的硬规则）
+- §11 未解问题 / 待拍板决策（knowledge-ingest 输入格式、retrospect 归档时机、bid-review persona 数量等）
+
+**全 skill 清单（24 个）**：
+- **v0.1 ✅（4）**：setup、rfp-parse、rfp-analyze、bid-draft
+- **v0.2 🚧（7）**：knowledge-ingest、retrospect、bid-review、bid-compliance、bid-qa、status、price
+- **v0.3 🚧（7）**：intake、discover、qualify、solution-ideate、solution-plan、case-match、competitor-scan
+- **v1.0 📋（6+）**：lead-scan、bid-negotiate、objection-lib、account-profile、account-update、relationship-map、doctor
+
+**文档同步**：
+- `docs/design/architecture-v0.1.md` §8：指向 `skill-catalog.md` 作为路线图单一事实来源，不再自己维护 v0.2+ 清单
+- `CLAUDE.md` 设计文档表：加 skill-catalog.md 条目
+- `README.md` 开发路线段：链接到 skill-catalog.md，列每个版本的目标 + skill 名称
+
+### 未触及（留给下一 session）
+- `ps:knowledge-ingest` 的输入格式规范设计（独立 brainstorm，纯设计无代码）
+- 跑真实 RFP 端到端验证 v0.1 三个业务 skill
+- `ps:retrospect` 先于 real RFP 跑通前定好归档 schema
+
+### 下一步候选
+- 设计 `ps:knowledge-ingest` 规范（对应 skill-catalog §4 + §11 未解问题 1）
+- 找一份真实 RFP 跑端到端
+- 修剩余 P1 Python 层（#2 sys.path / #7 rfp_validate / #11 --check json）

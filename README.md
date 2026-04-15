@@ -134,10 +134,12 @@ cp /path/to/招标文件.pdf ~/售前/商机/acme-2026/招标文件/原件/
 
 ## 开发路线
 
-- ✅ v0.1 — 应标最小闭环（setup / rfp-parse / rfp-analyze / bid-draft）
-- 🚧 v0.2 — 合规检查 + 多角色 review + 澄清问答
-- 🚧 v0.3 — 历史案例检索 + 负向学习 + 竞品雷达
-- 📋 v1.0 — 完整售前闭环（intake / discover / ideate / plan / draft / review / price / retrospect）
+完整 skill 目录 + 数据回路设计见 [`docs/design/skill-catalog.md`](./docs/design/skill-catalog.md)。
+
+- ✅ **v0.1** — 应标最小闭环（`setup` / `rfp-parse` / `rfp-analyze` / `bid-draft`）
+- 🚧 **v0.2** — 质量门槛 + 知识资产基础（`knowledge-ingest` / `retrospect` / `bid-review` / `bid-compliance` / `status` / `price` / `bid-qa`）
+- 🚧 **v0.3** — pre-RFP 深度 + 知识复利（`intake` / `discover` / `qualify` / `solution-ideate` / `solution-plan` / `case-match` / `competitor-scan`）
+- 📋 **v1.0** — 主动性 + 关系管理（`lead-scan` / `bid-negotiate` / `objection-lib` / `account-*` / `doctor`）
 
 ## 贡献
 
