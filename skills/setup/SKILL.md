@@ -35,11 +35,48 @@ argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
 
 ## 调用模式
 
-`ps:setup` 有两条等价路径，按调用上下文选择：
+**默认走交互问答（路径 B），除非配置已被显式提供。**
 
-### A. 非交互路径（CI / 程序化 / 已知配置）
+判断规则（**严格按此执行，不要凭"我是 agent"自行优化掉问答**）：
 
-直接调用脚本，把配置作为 JSON 字符串传入，跳过 Q&A。这是 agent-to-agent 调用的首选：
+| 触发条件 | 走哪条路径 |
+|---------|-----------|
+| 用户直接输入 `/ps:setup` 或自然语言"初始化 presales-engine"，**没有**附带 JSON 配置或 `--config-json` 参数 | **B（交互问答）** ← 99% 的情况 |
+| 用户明确在请求里贴了配置 JSON（例如"用这个 config 初始化：{...}"） | A（非交互） |
+| 另一个 skill 程序化调用 `ps:setup`，带完整 config 参数 | A（非交互） |
+| CI / shell 脚本直接调用 `python3 ps_setup.py --init --config-json '...'` | A（非交互），不经过 skill 层 |
+
+**关键**：Claude 自身是 agent 不构成走 A 路径的理由。只有"配置已被显式提供"才走 A。如果用户什么都没说就让你 setup，**必须**走 B 把问题问完。
+
+### B. 交互路径（默认）
+
+用平台的 `AskUserQuestion`（或等效工具）**一次问一个问题**，优先单选，必要时才自由输入：
+
+| 序 | 问题 | 类型 | 必填 |
+|----|------|------|------|
+| 1 | **数据存放位置**（默认 `~/presales/`，可改成任意可写绝对路径） | 文本 | ✅ |
+| 2 | 公司中文名称 | 文本 | ✅ |
+| 3 | 公司英文名称 | 文本 | ❌ |
+| 4 | 所在行业 | 单选：IT 服务 / 软件产品 / 硬件集成 / 咨询 / 其他 | ✅ |
+| 5 | 主要产品线（自由输入，逗号分隔） | 文本 | ✅ |
+| 6 | 默认语言 | 单选：zh-CN / en | ✅ |
+| 7 | 默认货币 | 单选：CNY / USD / EUR / 其他 | ✅ |
+| 8 | 公司能力亮点（一段话，可跳过） | 文本 | ❌ |
+
+收集完毕后**调用一次** `ps_setup.py`：Q1 的回答传给 `--home <path>`，Q2-Q8 组装成 `--config-json`：
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
+  --init \
+  --home <Q1 答案> \
+  --config-json '{"company_name_zh":"...","industry":"...",...}'
+```
+
+**禁止在 skill 内手写 `mkdir` 或 `cat >`**。所有写操作走脚本。
+
+### A. 非交互路径（仅当配置已被提供）
+
+调用形式同 B 路径最后一段，区别是配置不来自交互问答而来自调用方：
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
@@ -48,9 +85,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
   --config-json '{"company_name_zh":"...","industry":"IT 服务",...}'
 ```
 
-`--home` 可省略（默认 `~/presales/`）。如果省略，脚本仍按 3 层 resolution 解析路径。
+`--home` 可省略（默认 `~/presales/`），脚本按 3 层 resolution 解析。
 
-**`--config-json` 字段约定**：
+**`--config-json` 字段约定**（B 路径组装时也按此 schema）：
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
@@ -63,23 +100,6 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
 | `highlights` | string[] | ❌ | 公司能力亮点列表 |
 
 未列出的字段会被忽略。`highlights` 接受 string 或 string[]，scalar 会被强制归一化为单元素 list。
-
-### B. 交互路径（人类首次安装）
-
-用平台的 `AskUserQuestion`（或等效工具）一次问一个问题，优先单选，必要时才自由输入：
-
-| 序 | 问题 | 类型 | 必填 |
-|----|------|------|------|
-| 1 | **数据存放位置**（默认 `~/presales/`，可改成任意可写目录） | 文本 | ✅ |
-| 2 | 公司中文名称 | 文本 | ✅ |
-| 3 | 公司英文名称 | 文本 | ❌ |
-| 4 | 所在行业 | 单选：IT 服务 / 软件产品 / 硬件集成 / 咨询 / 其他 | ✅ |
-| 5 | 主要产品线（自由输入，逗号分隔） | 文本 | ✅ |
-| 6 | 默认语言 | 单选：zh-CN / en | ✅ |
-| 7 | 默认货币 | 单选：CNY / USD / EUR / 其他 | ✅ |
-| 8 | 公司能力亮点（一段话，可跳过） | 文本 | ❌ |
-
-Q1 的回答传给 `--home <path>`（脚本会写入指针文件持久化）；Q2-Q8 组装成 `--config-json`，走 A 路径调用脚本。**禁止在 skill 内手写 `mkdir` 或 `cat >`**。
 
 ## 其他脚本调用
 
