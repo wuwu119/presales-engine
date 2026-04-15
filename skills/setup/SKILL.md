@@ -50,39 +50,98 @@ argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
 
 ### B. 交互路径（默认）
 
-用平台的 `AskUserQuestion`（或等效工具）**一次问一个问题**，优先单选，必要时才自由输入：
+**只问一个问题**：
 
-| 序 | 问题 | 类型 | 必填 |
-|----|------|------|------|
-| 1 | **数据存放位置**（默认 `~/presales/`，可改成任意可写绝对路径） | 文本 | ✅ |
-| 2 | 公司中文名称 | 文本 | ✅ |
-| 3 | 公司英文名称 | 文本 | ❌ |
-| 4 | 所在行业 | 单选：IT 服务 / 软件产品 / 硬件集成 / 咨询 / 其他 | ✅ |
-| 5 | 主要产品线（自由输入，逗号分隔） | 文本 | ✅ |
-| 6 | 默认语言 | 单选：zh-CN / en | ✅ |
-| 7 | 默认货币 | 单选：CNY / USD / EUR / 其他 | ✅ |
-| 8 | 公司能力亮点（一段话，可跳过） | 文本 | ❌ |
+| 序 | 问题 | 必填 |
+|----|------|------|
+| 1 | 公司官网 URL（例如 `https://example.com`） | ✅ |
 
-收集完毕后**调用一次** `ps_setup.py`：Q1 的回答传给 `--home <path>`，Q2-Q8 组装成 `--config-json`：
+拿到 URL 后执行 3 阶段：
+
+**Phase 1：抓取**
+
+用 `WebFetch` 工具抓取主页。如果主页首屏信息不足（例如纯 SPA 或只有 logo），**最多再抓一个** `/about` 或 `/company` 子页。禁止深爬。
+
+**Phase 2：抽取最小字段**
+
+从抓到的 HTML / Markdown 内容里，**只**抽取这些字段，抓到什么填什么：
+
+| 字段 | 来源线索 |
+|------|----------|
+| `company.name_zh` / `name_en` | `<title>`、`og:site_name`、首屏 logo 文本、版权行 |
+| `company.industry` | meta description、slogan，一句话推断 |
+| `company.founded` | "成立于 YYYY" / "Since YYYY" / "About us" 段落 |
+| `company.size` | "X 名员工" / "X+ employees"（数字或区间） |
+| `company.location` | footer / Contact 页的地址 |
+| 一句话简介 | meta description 或首屏一行文案 |
+| `preferences.language` / `currency` | 按域名推断：`.cn` 或中文内容 → `zh-CN` / `CNY`；`.com` 英文内容 → `en` / `USD`；不确定默认 `zh-CN` / `CNY` |
+
+**严禁编造**：页面没有明确文字的字段一律 `null`。
+
+**以下字段 v0.1 setup 一律留空**（等独立知识库构建流程处理）：
+- `qualifications[]`
+- `case_references[]`
+- `team[]`
+- `highlights[]`（除非首屏有明确可量化的亮点文字）
+- `company.product_lines[]`（除非首屏有明确的产品线列表）
+
+**Phase 3：Review + 写入**
+
+用 Markdown 表格展示抽取结果，每行标注 source（"来自 `<title>`"、"来自 /about 页段 2"等），问用户：
+
+```
+以上信息对吗？
+✅ 全部接受 → 直接写入
+✏️ 某项要改 → 告诉我要改的字段和正确值
+❌ 全部丢弃 → 走 fallback 最小手工问答
+```
+
+接受后调用脚本：
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
   --init \
-  --home <Q1 答案> \
-  --config-json '{"company_name_zh":"...","industry":"...",...}'
+  --config-json '{"company_name_zh":"...","company_name_en":"...","industry":"...","language":"zh-CN","currency":"CNY"}'
 ```
 
-**禁止在 skill 内手写 `mkdir` 或 `cat >`**。所有写操作走脚本。
+`--home` 默认不传（用 `~/presales/`）。如果用户后续想换位置，再用 `ps:setup --home` 重新走一遍。
+
+### B-fallback：URL 不可用或抽取失败
+
+触发条件：
+- `WebFetch` 工具不可用
+- URL 返回 4xx / 5xx / 超时
+- 抓到 HTML 但关键字段都提取不到（例如纯 JS 渲染的 SPA）
+- 用户在 review 阶段选 ❌
+
+回退到**最小手工问答**（3 题）：
+
+| 序 | 问题 | 必填 |
+|----|------|------|
+| 1 | 公司中文名称 | ✅ |
+| 2 | 公司英文名称 | ❌ |
+| 3 | 所在行业（一句话） | ✅ |
+
+其他字段全部留空，组装成 `--config-json` 调用脚本，默认 `language=zh-CN` / `currency=CNY`。
+用户后续可手工编辑 `~/presales/knowledge/company-profile.yaml` 补充。
+
+---
+
+> ⚠️ **证据库 / 产品库 / 案例库的构建不归 `ps:setup` 管**
+>
+> `company-profile.yaml` 里的 `qualifications[]` / `case_references[]` / `team[]` 字段，以及 `knowledge/products/*.yaml` 需要基于真实文件证据（ISO 证书 PDF、案例 PPT、产品手册等）建立。
+> v0.1 的 setup **只写基础公司信息**，这些高价值字段留空。
+> 未来版本会引入独立的 `ps:knowledge-ingest`（暂定名）skill，让用户按标准格式提供证据文件，预处理成标准化的知识库条目。设计待定。
 
 ### A. 非交互路径（仅当配置已被提供）
 
-调用形式同 B 路径最后一段，区别是配置不来自交互问答而来自调用方：
+调用形式：
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
   --init \
   --home /Users/<you>/presales \
-  --config-json '{"company_name_zh":"...","industry":"IT 服务",...}'
+  --config-json '{"company_name_zh":"...","industry":"...",...}'
 ```
 
 `--home` 可省略（默认 `~/presales/`），脚本按 3 层 resolution 解析。
@@ -93,13 +152,15 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
 |------|------|------|------|
 | `company_name_zh` | string | ✅ | 公司中文名 |
 | `company_name_en` | string | ❌ | 公司英文名 |
-| `industry` | string | ✅ | 行业（IT 服务 / 软件产品 / 硬件集成 / 咨询 / 其他） |
-| `product_lines` | string[] | ✅ | 产品线列表，至少 1 项 |
-| `language` | string | ✅ | `zh-CN` 或 `en` |
-| `currency` | string | ✅ | `CNY` / `USD` / `EUR` / 其他 |
-| `highlights` | string[] | ❌ | 公司能力亮点列表 |
+| `industry` | string | ❌ | 行业描述（一句话，自由文本） |
+| `product_lines` | string[] | ❌ | 产品线列表。v0.1 默认留空，留给独立知识库流程 |
+| `language` | string | ❌ | `zh-CN` / `en`，默认 `zh-CN` |
+| `currency` | string | ❌ | `CNY` / `USD` / `EUR`，默认 `CNY` |
+| `highlights` | string[] | ❌ | v0.1 默认留空 |
 
 未列出的字段会被忽略。`highlights` 接受 string 或 string[]，scalar 会被强制归一化为单元素 list。
+
+**v0.1 设计原则**：config-json 字段一律宽松，除 `company_name_zh` 外全部可选；缺失字段自动补默认值或 null。填充 `qualifications` / `case_references` / `team` 等深度字段应走未来的独立知识库 skill，不经过本脚本。
 
 ## 其他脚本调用
 

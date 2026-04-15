@@ -39,16 +39,20 @@ git clone https://github.com/wuwu119/presales-engine.git ~/代码库/presales-en
 /ps:setup
 ```
 
-交互式问答：**数据存放位置（默认 `~/presales/`，可改）**、公司名、行业、产品线、默认语言。执行后：
-- 在你选的位置生成目录骨架（默认 `~/presales/`，可见目录方便手工编辑）
-- 写入 `config.yaml` 和 `company-profile.yaml`
-- 复制种子模板
-- 把所选路径持久化到 `~/.config/presales-engine/home`（指针文件，下次自动用）
+**只问一个问题：公司官网 URL**。Claude 用 `WebFetch` 抓主页，抽取最小字段（公司名、行业一句话、成立年份/规模/总部 best-effort），展示给你确认，然后写入 `~/presales/`：
 
-**想换位置**？三种方式：
-- 交互式 setup 时直接回答 Q1
-- 命令行：`python3 ps_setup.py --init --home /your/path --config-json '{}'`
+- `config.yaml`（基础配置，语言默认 zh-CN，货币默认 CNY）
+- `knowledge/company-profile.yaml`（只填抓到的基础字段；`qualifications` / `case_references` / `team` 一律留空）
+- 种子模板复制到 `~/presales/templates/`
+
+URL 抓不到或你没给 URL → 回退到最小 3 题问答：公司中文名 + 英文名 + 行业一句话，其他留空。
+
+> ⚠️ **证据库 / 产品库 / 案例库不在 setup 范围**。setup 只建基础骨架；资质证书、客户案例、产品手册的录入走未来独立的 `ps:knowledge-ingest` 流程。
+
+**想指定数据位置**？三种方式：
+- 命令行：`python3 ps_setup.py --init --home /your/path`
 - 一次性覆盖（不持久化）：设置环境变量 `PRESALES_HOME=/custom/path`
+- 默认 `~/presales/`（可见目录，方便后续手工编辑）
 
 ### 2. 解析招标文件
 

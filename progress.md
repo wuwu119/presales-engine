@@ -265,3 +265,44 @@ P3 剩余：8（C-06 关闭）
 - 装本地 Claude Code 验证新流程（你刚才已经验过基本加载）
 - 跑真实 RFP 端到端
 - 修剩余 P1 #2 / #7 / #11
+
+## Session: 2026-04-15 (cont.) — setup scope 收窄到 URL + 独立知识库
+
+### 决策
+- 用户反馈 1：之前的交互问答模式失效（SKILL.md 把 A 路径描述成"agent-to-agent 首选"，Claude 读到就跳过问答）→ 已在上个 commit `cc0ae9b` 修复
+- 用户反馈 2：初始化不应该问一堆问题，**只给公司名字，其他自动从网上抓**
+- 用户反馈 3：证据库 / 产品库 / 案例库的建设不应该塞进 setup，**应该独立设计**，让用户按标准格式提供文件或者走预处理流程
+- 我的反建议"让用户提供本地文件 + URL + 粘贴文字混合输入"被否：scope 收窄到只一个 URL，其他独立 skill 处理
+
+### 本次产出
+
+**`skills/setup/SKILL.md`（170 → 231 行）**：
+- B 路径彻底重写为"URL 驱动的最小信息抽取"：
+  - Q1 仅 = 公司官网 URL
+  - Phase 1 抓取：WebFetch 主页（最多再抓一个 /about 子页）
+  - Phase 2 抽取：仅提取 name_zh/name_en/industry/founded/size/location 最小字段 + 按域名推断 language/currency；所有 qualifications/cases/team/highlights/product_lines 一律留空
+  - Phase 3 Review + 写入：Markdown 表格 + source 标注 + ✅/✏️/❌ 确认
+  - 严禁编造，找不到就 null
+- 新增 B-fallback 段：URL 不可用或抽取失败 → 回退到 3 题最小手工问答（中文名 + 英文名 + 行业一句话）
+- 加醒目的 v0.1 scope 声明：**证据库 / 产品库 / 案例库不归 ps:setup 管**，留给未来 `ps:knowledge-ingest`（暂定名）
+- A 路径 schema 表更新：只 `company_name_zh` 必填，其他字段全部可选，`product_lines` / `highlights` 强调 v0.1 留空
+
+**`README.md` 同步**：
+- Quickstart 的 setup 段重写为 URL 驱动的说明
+- 加 ⚠️ 证据库 / 产品库 / 案例库不在 setup 范围的声明
+- 指定数据位置的 3 种方式列出
+
+### 没触碰的代码
+- `ps_setup.py` / `ps_paths.py` / `ps_setup_utils.py` 一行不动：现有 `--config-json` 的字段都变成可选后，Python 端用 `config.get("field", "")` 的默认值语义本来就吃得住；没有写死的 required 字段
+- 4 个 template YAML 不动
+- 其他 SKILL.md 不动
+
+### 未解问题
+- `ps:knowledge-ingest` 的独立设计：什么输入格式（文件路径列表 / 标准化目录结构 / zip 包）、支持哪些文件类型、如何映射到 qualifications / case_references / products 的 YAML 结构、evidence_file 存放规则——**全部待 v0.2+ 设计会议**
+- URL 驱动 setup 未在真实 Claude Code 里验证过 Q1 + WebFetch + review + 写入全链路
+- WebFetch 工具的可用性检测逻辑目前只是"抓不到就 fallback"，没在 skill 开头做 capability probe
+
+### 下一步候选
+- 重启新 Claude Code 窗口，重新跑 `/ps:setup`，验证 URL 流程是否真的按新 SKILL.md 跑
+- 设计 `ps:knowledge-ingest` 的输入格式规范（单独的 brainstorm session）
+- 推 GitHub
