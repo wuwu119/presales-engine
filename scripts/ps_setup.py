@@ -9,7 +9,7 @@ Invoked by ps:setup skill (never by the user directly).
 Modes:
     --init                  create directory skeleton, write config from --config-json
     --reset                 backup PRESALES_HOME to <parent>/<name>.backup.<ts>
-    --import <path>         copy opportunities/cases/knowledge from another dir
+    --import <path>         copy 商机/归档/知识库 from another dir
     --check                 print current state, make no changes
 """
 
@@ -106,7 +106,7 @@ def init_skeleton(config: dict, force: bool = False) -> int:
     print(f"✅ 初始化完成：{home} (v{VERSION})")
     print(f"   config: {config_path}")
     print(f"   company-profile: {profile_path}")
-    print(f"下一步：把 RFP 放到 {home}/opportunities/<项目名>/rfp/original/ 后运行 /ps:rfp-parse <项目名>")
+    print(f"下一步：把 RFP 放到 {home}/商机/<项目名>/招标文件/原件/ 后运行 /ps:rfp-parse <项目名>")
     return 0
 
 
@@ -164,7 +164,7 @@ def reset_home() -> int:
 
 
 def import_from(source: Path) -> int:
-    """Deep-merge opportunities / cases / knowledge from another presales data dir.
+    """Deep-merge 商机 / 归档 / 知识库 from another presales data dir.
 
     Walks each sub-tree recursively; skips individual files (not whole subdirs)
     so empty placeholder dirs in target don't drop source files.
@@ -180,7 +180,7 @@ def import_from(source: Path) -> int:
 
     copied = 0
     skipped = 0
-    for sub in ("opportunities", "cases", "knowledge"):
+    for sub in ("商机", "归档", "知识库"):
         src_root = source / sub
         if not src_root.exists():
             continue
@@ -232,9 +232,9 @@ def check_status() -> int:
         print(f"  {name}: {'✅' if path.exists() else '❌ 缺失'} {path}")
 
     if kp["opportunities"].exists():
-        print(f"  opportunities: {sum(1 for i in kp['opportunities'].iterdir() if i.is_dir())} 个")
+        print(f"  商机: {sum(1 for i in kp['opportunities'].iterdir() if i.is_dir())} 个")
     if kp["cases"].exists():
-        print(f"  cases: {sum(1 for i in kp['cases'].iterdir() if i.is_dir())} 个")
+        print(f"  归档: {sum(1 for i in kp['cases'].iterdir() if i.is_dir())} 个")
     print(f"  plugin_root: {plugin_root()}")
     return 0
 

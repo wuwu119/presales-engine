@@ -5,8 +5,8 @@
 ## 三原则
 
 1. **LLM 做决策，脚本做体力活** — 判断类逻辑留给 skill，文件操作交给 `scripts/`
-2. **程序和数据严格分离** — 插件只读（`${CLAUDE_PLUGIN_ROOT}`），用户数据存 `${PRESALES_HOME}`（默认 `~/presales/`）
-3. **每段标书可追溯** — `draft/chapters/*.md` 中每个段落必须对应 `rfp.yaml` 评分项或需求条目
+2. **程序和数据严格分离** — 插件只读（`${CLAUDE_PLUGIN_ROOT}`），用户数据存 `${PRESALES_HOME}`（默认 `~/售前/`）
+3. **每段标书可追溯** — `草稿/章节/*.md` 中每个段落必须对应 `rfp.yaml` 评分项或需求条目
 
 ## 架构
 
@@ -16,7 +16,7 @@
 
 | Skill | 触发 | 职责 |
 |-------|------|------|
-| `ps:setup` | 首次安装 / 升级 | 创建 `~/presales/` 骨架、写初始配置、复制种子模板 |
+| `ps:setup` | 首次安装 / 升级 | 创建 `~/售前/` 骨架、写初始配置、复制种子模板 |
 | `ps:rfp-parse` | 收到招标文件 | RFP（PDF/Word/MD）结构化解析为 `rfp.yaml` |
 | `ps:rfp-analyze` | parse 完成后 | 战略分析：废标风险、评分杠杆、Go/No-Go 建议、信息缺口 |
 | `ps:bid-draft` | analyze 通过后 | 按章节生成标书草稿，每段追溯到 RFP 评分项 |
@@ -29,20 +29,20 @@ presales-engine/
 ├── .claude-plugin/         # 插件 manifest
 ├── skills/                 # 4 个 skill 定义
 ├── scripts/                # 路径解析 + setup 脚本
-├── templates/              # 种子模板（config / company-profile / outline / products/example）
+├── 模板/              # 种子模板（config / company-profile / outline / products/example）
 ├── knowledge-seed/         # 知识库骨架种子（每个子目录一个 README.md 填充指南）
 ├── docs/                   # 架构设计
 └── CLAUDE.md / README.md
 ```
 
-**数据**（`<user-chosen>/presales/`，用户可写，不在 Git；默认 `~/presales/`，交互式 setup 时用户可指定父目录）：
+**数据**（`<parent>/售前/`，用户可写，不在 Git；默认 `~/售前/`，交互式 setup 时用户可指定父目录）：
 ```
-<parent>/presales/
+<parent>/售前/
 ├── .version                        # 当前数据目录对应的插件版本
 ├── config.yaml                     # 用户配置
-├── opportunities/{slug}/           # 每个商机独立目录
+├── 商机/{slug}/           # 每个商机独立目录
 ├── cases/                          # 归档的 opportunity（跑完的单整体搬进来）
-├── knowledge/                      # 知识库根（README.md 总览 + 以下子目录）
+├── 知识库/                      # 知识库根（README.md 总览 + 以下子目录）
 │   ├── company-profile.yaml        # 主档案（相对路径引用下面的文件）
 │   ├── about/                      # 公司介绍材料（PDF/PPT/MD）
 │   ├── certs/                      # 资质证书（ISO / 许可 / 测评）
@@ -50,34 +50,34 @@ presales-engine/
 │   ├── products/                   # 产品 / 服务档案（YAML + 附件）
 │   ├── competitors/                # 竞品档案（v0.2 用）
 │   └── team/                       # 团队资质（花名册 + 个人证书 + 简历）
-└── templates/                      # 用户自定义模板（覆盖插件种子）
+└── 模板/                      # 用户自定义模板（覆盖插件种子）
 ```
 
-每个 `knowledge/*/` 子目录启动时带一份 README.md（由 `ps:setup` 从 `knowledge-seed/` 拷贝），说明放什么、命名约定、格式、谁引用。填充 `knowledge/` 不归 `ps:setup` 管，走手工或未来独立的 `ps:knowledge-ingest` skill。
+每个 `知识库/*/` 子目录启动时带一份 README.md（由 `ps:setup` 从 `knowledge-seed/` 拷贝），说明放什么、命名约定、格式、谁引用。填充 `知识库/` 不归 `ps:setup` 管，走手工或未来独立的 `ps:knowledge-ingest` skill。
 
 **数据目录路径 resolution（3 层，优先级从高到低）**：
 1. `PRESALES_HOME` 环境变量（CI / 一次性覆盖）
 2. `~/.config/presales-engine/home` 指针文件（由 `ps:setup --home <path>` 持久化）
-3. 默认 `~/presales/`（无前导点，可见目录）
+3. 默认 `~/售前/`（无前导点，可见目录）
 
 ### 路径约定
 
 - `PLUGIN_ROOT` = `${CLAUDE_PLUGIN_ROOT}`（Claude Code 注入）
-- `PRESALES_HOME` = 用户数据根，三层 resolution 见上，默认 `~/presales/`
+- `PRESALES_HOME` = 用户数据根，三层 resolution 见上，默认 `~/售前/`
 - 所有脚本通过 `scripts/ps_paths.py` 解析路径，**禁止硬编码**
 
 ### Opportunity 目录契约
 
 ```
-~/presales/opportunities/{slug}/
+~/售前/商机/{slug}/
 ├── meta.yaml               # 基本信息（客户、项目、截止日期、状态）
 ├── rfp/
 │   ├── original/           # 原始招标文件（PDF/Word/扫描件）
 │   └── extracted.md        # 文本提取结果
-├── analysis/
+├── 分析/
 │   ├── rfp.yaml            # /ps:rfp-parse 产出
 │   └── analysis.md         # /ps:rfp-analyze 产出
-├── draft/
+├── 草稿/
 │   ├── outline.md          # 章节大纲
 │   └── chapters/           # 分章节草稿
 └── review.md               # v0.2 引入

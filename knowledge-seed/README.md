@@ -1,6 +1,6 @@
 # 知识库目录结构
 
-`knowledge/` 是公司可复用资产的根。`ps:rfp-analyze` 和 `ps:bid-draft` 会引用此目录下的文件做 Go/No-Go 判断和标书内容生成。
+`知识库/` 是公司可复用资产的根。`ps:rfp-analyze` 和 `ps:bid-draft` 会引用此目录下的文件做 Go/No-Go 判断和标书内容生成。
 
 ## 子目录一览
 
@@ -22,15 +22,15 @@ qualifications:
   - id: QUAL-001
     name: ISO 9001
     valid_until: 2027-12-31
-    evidence_file: certs/iso9001-SGS-2027.pdf   # 相对 knowledge/
+    evidence_file: certs/iso9001-SGS-2027.pdf   # 相对 知识库/
 ```
 
-这样迁移整个 `knowledge/` 目录时引用不会失效。
+这样迁移整个 `知识库/` 目录时引用不会失效。
 
-## 顶层 `cases/` vs `knowledge/case-studies/`
+## 顶层 `cases/` vs `知识库/客户案例/`
 
-- `<presales>/cases/` — **归档目录**，存已跑完的 opportunity 整个目录（含原始 RFP、生成的标书、复盘）
-- `<presales>/knowledge/case-studies/` — **可复用资料库**，存客户允许公开引用的案例材料（overview、授权见证信、公开演讲稿等）
+- `<售前>/归档/` — **归档目录**，存已跑完的 opportunity 整个目录（含原始 RFP、生成的标书、复盘）
+- `<售前>/知识库/客户案例/` — **可复用资料库**，存客户允许公开引用的案例材料（overview、授权见证信、公开演讲稿等）
 
 ## 填充时机
 

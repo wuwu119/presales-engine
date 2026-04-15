@@ -22,9 +22,12 @@ desktop.ini
 *~
 
 # User data — 插件仓库禁止包含任何实际客户数据
+售前/
 presales/
 .presales/
+商机/
 opportunities/
+归档/
 test-data/
 fixtures/real-*/
 

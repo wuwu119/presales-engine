@@ -11,7 +11,7 @@
 - 🔍 **RFP 智能解析** — PDF / Word / Markdown 招标文件结构化为 YAML（评分项 / 废标项 / 需求清单 / 时间节点 / 资质要求）
 - 🎯 **战略分析** — 自动扫描废标风险、识别评分杠杆、给出 Go/No-Go 决策矩阵
 - ✍️ **标书生成** — 分章节生成草稿，每段可追溯到 RFP 评分项，防止自嗨式方案
-- 🗄️ **数据程序分离** — 插件只读，用户数据存于 `~/presales/`，便于备份、迁移、多机同步
+- 🗄️ **数据程序分离** — 插件只读，用户数据存于 `~/售前/`，便于备份、迁移、多机同步
 - 📚 **知识累积** — 历史案例、复盘结论逐步沉淀，作为未来投标的参考
 
 ## 安装
@@ -39,11 +39,11 @@ git clone https://github.com/wuwu119/presales-engine.git ~/代码库/presales-en
 /ps:setup
 ```
 
-**只问一个问题：公司官网 URL**。Claude 用 `WebFetch` 抓主页，抽取最小字段（公司名、行业一句话、成立年份/规模/总部 best-effort），展示给你确认，然后写入 `~/presales/`：
+**只问一个问题：公司官网 URL**。Claude 用 `WebFetch` 抓主页，抽取最小字段（公司名、行业一句话、成立年份/规模/总部 best-effort），展示给你确认，然后写入 `~/售前/`：
 
 - `config.yaml`（基础配置，语言默认 zh-CN，货币默认 CNY）
-- `knowledge/company-profile.yaml`（只填抓到的基础字段；`qualifications` / `case_references` / `team` 一律留空）
-- 种子模板复制到 `~/presales/templates/`
+- `知识库/company-profile.yaml`（只填抓到的基础字段；`qualifications` / `case_references` / `team` 一律留空）
+- 种子模板复制到 `~/售前/模板/`
 
 URL 抓不到或你没给 URL → 回退到最小 3 题问答：公司中文名 + 英文名 + 行业一句话，其他留空。
 
@@ -52,13 +52,13 @@ URL 抓不到或你没给 URL → 回退到最小 3 题问答：公司中文名 
 **想指定数据位置**？三种方式：
 - 命令行：`python3 ps_setup.py --init --home /your/path`
 - 一次性覆盖（不持久化）：设置环境变量 `PRESALES_HOME=/custom/path`
-- 默认 `~/presales/`（可见目录，方便后续手工编辑）
+- 默认 `~/售前/`（可见目录，方便后续手工编辑）
 
 ### 2. 解析招标文件
 
 ```bash
-mkdir -p ~/presales/opportunities/acme-2026/rfp/original
-cp /path/to/招标文件.pdf ~/presales/opportunities/acme-2026/rfp/original/
+mkdir -p ~/售前/商机/acme-2026/招标文件/原件
+cp /path/to/招标文件.pdf ~/售前/商机/acme-2026/招标文件/原件/
 ```
 
 然后运行：
@@ -68,8 +68,8 @@ cp /path/to/招标文件.pdf ~/presales/opportunities/acme-2026/rfp/original/
 ```
 
 产出：
-- `rfp/extracted.md` — 文本提取（人读用）
-- `analysis/rfp.yaml` — 结构化结果（评分项 / 废标项 / 需求 / 时间 / 资质）
+- `招标文件/extracted.md` — 文本提取（人读用）
+- `分析/rfp.yaml` — 结构化结果（评分项 / 废标项 / 需求 / 时间 / 资质）
 
 ### 3. 战略分析
 
@@ -77,7 +77,7 @@ cp /path/to/招标文件.pdf ~/presales/opportunities/acme-2026/rfp/original/
 /ps:rfp-analyze acme-2026
 ```
 
-自动对照 `knowledge/company-profile.yaml`，输出 `analysis/analysis.md`：
+自动对照 `知识库/company-profile.yaml`，输出 `分析/analysis.md`：
 
 - **废标风险** — 硬性资质不满足的项
 - **评分杠杆** — 高权重且我方有优势的项
@@ -91,7 +91,7 @@ cp /path/to/招标文件.pdf ~/presales/opportunities/acme-2026/rfp/original/
 /ps:bid-draft acme-2026
 ```
 
-按章节生成标书草稿，写入 `draft/chapters/`。每段末尾注明对应的 RFP 评分项编号：
+按章节生成标书草稿，写入 `草稿/章节/`。每段末尾注明对应的 RFP 评分项编号：
 
 > [对标: SCORING-03 / REQ-12]
 
@@ -99,32 +99,38 @@ cp /path/to/招标文件.pdf ~/presales/opportunities/acme-2026/rfp/original/
 
 ## 数据目录
 
-所有用户数据存储在 `~/presales/`（可通过 `PRESALES_HOME` 环境变量覆盖）：
+所有用户数据存储在 `~/售前/`（可通过 `PRESALES_HOME` 环境变量覆盖）：
 
 ```
-~/presales/
-├── .version                    # 插件版本号
-├── config.yaml                 # 用户配置
-├── opportunities/              # 商机目录（每个项目一个子目录）
+~/售前/
+├── .version                     # 插件版本号
+├── config.yaml                  # 用户配置
+├── 商机/                        # 活跃商机目录（每个项目一个子目录）
 │   └── {slug}/
 │       ├── meta.yaml
-│       ├── rfp/
-│       ├── analysis/
-│       └── draft/
-├── cases/                      # 历史案例库
-├── knowledge/                  # 公司档案、产品档案、竞品档案
+│       ├── 招标文件/
+│       ├── 分析/
+│       └── 草稿/
+├── 归档/                        # 跑完的 opportunity 整体搬过来
+├── 知识库/                      # 公司档案、产品档案、竞品档案等
+│   ├── README.md
 │   ├── company-profile.yaml
-│   └── products/
-└── templates/                  # 用户自定义模板
+│   ├── 公司介绍/
+│   ├── 资质证书/
+│   ├── 客户案例/
+│   ├── 产品档案/
+│   ├── 竞品/
+│   └── 团队/
+└── 模板/                        # 用户自定义模板
 ```
 
-**插件本身不存储任何用户数据**，卸载插件不影响 `~/presales/`。
+**插件本身不存储任何用户数据**，卸载插件不影响 `~/售前/`。
 
 ## 隐私和安全
 
-- 所有 RFP、方案、客户信息保留在本地 `~/presales/`
-- 插件仓库 `.gitignore` 排除 `presales/`、`.presales/`（v0.1 旧默认）和 `opportunities/`
-- 建议 `~/presales/` 单独备份，不要 commit 到任何仓库
+- 所有 RFP、方案、客户信息保留在本地 `~/售前/`
+- 插件仓库 `.gitignore` 排除 `售前/`、`presales/`、`.presales/`（防御老数据）
+- 建议 `~/售前/` 单独备份，不要 commit 到任何仓库
 
 ## 开发路线
 

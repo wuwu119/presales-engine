@@ -8,8 +8,8 @@ argument-hint: "<opportunity-slug>"
 
 ## 前置条件
 
-- `{slug}/analysis/rfp.yaml` 存在且通过校验
-- `${PRESALES_HOME}/knowledge/company-profile.yaml` 存在（setup 阶段创建）
+- `{slug}/分析/rfp.yaml` 存在且通过校验
+- `${PRESALES_HOME}/知识库/company-profile.yaml` 存在（setup 阶段创建）
 
 前置条件不满足时**拒绝执行**，提示用户先跑 `/ps:rfp-parse` 或 `/ps:setup`。
 
@@ -17,15 +17,15 @@ argument-hint: "<opportunity-slug>"
 
 | 文件 | 必需 |
 |------|------|
-| `{slug}/analysis/rfp.yaml` | ✅ |
-| `knowledge/company-profile.yaml` | ✅ |
-| `knowledge/products/*.yaml` | ❌ 可选，用于产品匹配 |
-| `knowledge/competitors/*.yaml` | ❌ v0.2 引入 |
+| `{slug}/分析/rfp.yaml` | ✅ |
+| `知识库/company-profile.yaml` | ✅ |
+| `知识库/产品档案/*.yaml` | ❌ 可选，用于产品匹配 |
+| `知识库/竞品/*.yaml` | ❌ v0.2 引入 |
 | `cases/` 下的历史案例 | ❌ v0.3 自动检索，v0.1 人工引用 |
 
 ## 输出
 
-`{slug}/analysis/analysis.md`
+`{slug}/分析/analysis.md`
 
 ## 必含段落（按固定顺序）
 

@@ -1,4 +1,4 @@
-# 产品档案库 (`knowledge/products/`)
+# 产品档案库 (`知识库/产品档案/`)
 
 公司所有产品 / 服务的结构化档案。`ps:rfp-analyze` 用它做"评分杠杆"时匹配 RFP 需求，`ps:bid-draft` 用它生成"技术方案"章节。
 
@@ -19,7 +19,7 @@ products/
 
 ## YAML Schema
 
-参考 `<presales>/templates/products/example.yaml`（由 `ps:setup` 从插件拷贝过来）。最小字段集：
+参考 `<售前>/模板/产品档案/example.yaml`（由 `ps:setup` 从插件拷贝过来）。最小字段集：
 
 ```yaml
 meta:
@@ -37,7 +37,7 @@ delivery:
 pricing:
   model: 一次性
 references:
-  - case_id: CASE-001   # 指向 knowledge/case-studies/ 里的案例
+  - case_id: CASE-001   # 指向 知识库/客户案例/ 里的案例
 ```
 
 ## 命名约定
@@ -48,11 +48,11 @@ references:
 
 ## 种子模板
 
-`ps:setup` 会把 `templates/products/example.yaml` 拷到 `<presales>/templates/products/example.yaml` 作为 schema 参考。新增产品时：
+`ps:setup` 会把 `模板/产品档案/example.yaml` 拷到 `<售前>/模板/产品档案/example.yaml` 作为 schema 参考。新增产品时：
 
-1. `cp ~/presales/templates/products/example.yaml ~/presales/knowledge/products/<your-slug>.yaml`
+1. `cp ~/售前/模板/产品档案/example.yaml ~/售前/知识库/产品档案/<your-slug>.yaml`
 2. 编辑填充真实数据
-3. 可选：建 `~/presales/knowledge/products/<your-slug>/` 放附件
+3. 可选：建 `~/售前/知识库/产品档案/<your-slug>/` 放附件
 
 ## 谁引用它
 

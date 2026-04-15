@@ -1,6 +1,6 @@
 ---
 name: ps:rfp-parse
-description: 把招标文件（PDF/Word/Markdown）结构化解析为 rfp.yaml，抽取评分项、废标项、需求清单、时间节点和资质要求。输入 opportunity slug，自动扫描 rfp/original/ 下的文件。当用户说"解析招标文件"、"rfp parse"、"解析这份 RFP"、"提取招标要求"时触发。
+description: 把招标文件（PDF/Word/Markdown）结构化解析为 rfp.yaml，抽取评分项、废标项、需求清单、时间节点和资质要求。输入 opportunity slug，自动扫描 招标文件/原件/ 下的文件。当用户说"解析招标文件"、"rfp parse"、"解析这份 RFP"、"提取招标要求"时触发。
 argument-hint: "<opportunity-slug> [--force]"
 ---
 
@@ -9,11 +9,11 @@ argument-hint: "<opportunity-slug> [--force]"
 ## 前置条件
 
 - `ps:setup` 已执行，`${PRESALES_HOME}` 存在
-- `${PRESALES_HOME}/opportunities/{slug}/rfp/original/` 下至少有一个文件
+- `${PRESALES_HOME}/商机/{slug}/招标文件/原件/` 下至少有一个文件
 
 ## 输入
 
-`${PRESALES_HOME}/opportunities/{slug}/rfp/original/` 下的一个或多个文件：
+`${PRESALES_HOME}/商机/{slug}/招标文件/原件/` 下的一个或多个文件：
 - `.pdf`（原生或扫描件）
 - `.docx` / `.doc`
 - `.md` / `.txt`（已手工转换的）
@@ -22,37 +22,37 @@ argument-hint: "<opportunity-slug> [--force]"
 
 | 文件 | 用途 |
 |------|------|
-| `{slug}/rfp/extracted.md` | 文本提取结果（人读用） |
-| `{slug}/analysis/rfp.yaml` | 结构化解析结果，schema 见 `docs/design/architecture-v0.1.md` §5 |
+| `{slug}/招标文件/extracted.md` | 文本提取结果（人读用） |
+| `{slug}/分析/rfp.yaml` | 结构化解析结果，schema 见 `docs/design/architecture-v0.1.md` §5 |
 | `{slug}/meta.yaml` | 基本信息（若不存在则创建） |
 
 ## 行为流程
 
 ### Phase 0: 准备 opportunity 目录
 
-确保 `${PRESALES_HOME}/opportunities/{slug}/` 子树存在。这是确定性体力活，**v0.1 由 skill 直接通过 Bash 创建**（v0.2 路标：引入 `scripts/ps_opportunity.py --create --slug X` 把这步移出 skill）：
+确保 `${PRESALES_HOME}/商机/{slug}/` 子树存在。这是确定性体力活，**v0.1 由 skill 直接通过 Bash 创建**（v0.2 路标：引入 `scripts/ps_opportunity.py --create --slug X` 把这步移出 skill）：
 
 ```bash
 SLUG="<slug>"
-HOME_DIR="${PRESALES_HOME:-$HOME/presales}"
-mkdir -p "$HOME_DIR/opportunities/$SLUG/rfp/original" \
-         "$HOME_DIR/opportunities/$SLUG/analysis" \
-         "$HOME_DIR/opportunities/$SLUG/draft/chapters"
+HOME_DIR="${PRESALES_HOME:-$HOME/售前}"
+mkdir -p "$HOME_DIR/商机/$SLUG/招标文件/原件" \
+         "$HOME_DIR/商机/$SLUG/分析" \
+         "$HOME_DIR/商机/$SLUG/草稿/章节"
 ```
 
-创建之后，**必须**检查 `rfp/original/` 是否为空：
-- 空 → 停止并提示用户把 RFP 文件放进 `$HOME_DIR/opportunities/$SLUG/rfp/original/`，然后重跑
+创建之后，**必须**检查 `招标文件/原件/` 是否为空：
+- 空 → 停止并提示用户把 RFP 文件放进 `$HOME_DIR/商机/$SLUG/招标文件/原件/`，然后重跑
 - 非空 → 进入 Phase 1
 
 ### Phase 1: 文本提取
 
-优先用 Claude Code 原生 `Read` 工具读取所有 `rfp/original/*`：
+优先用 Claude Code 原生 `Read` 工具读取所有 `招标文件/原件/*`：
 
 - 对 PDF：Read 工具支持 PDF 原生读取，最多 20 页 / 次
-- 对 DOCX：若 Read 不支持，提示用户手工转 `.md` 并放回 `rfp/original/`
+- 对 DOCX：若 Read 不支持，提示用户手工转 `.md` 并放回 `招标文件/原件/`
 - 对扫描件 PDF：Read 会返回图像，此时调用 OCR 能力（若无，报错提示）
 
-将所有文本合并写入 `{slug}/rfp/extracted.md`，按原文件名分 section，保留章节标题和页码。
+将所有文本合并写入 `{slug}/招标文件/extracted.md`，按原文件名分 section，保留章节标题和页码。
 
 ### Phase 2: 结构化解析（纯 LLM 决策）
 

@@ -373,3 +373,72 @@ PRESALES_HOME=/tmp/... python3 scripts/ps_setup.py --init --config-json '{}'
 - 交互式父目录问答未在真实 Claude Code 里端到端验证（WebFetch + AskUserQuestion + --home 传递）
 - `ps:knowledge-ingest` 设计仍然是占位，v0.2 才做
 - 已初始化过的用户如果改父目录，没有迁移命令（要手工 mv）
+
+## Session: 2026-04-15 (cont.) — 用户数据目录全面中文化
+
+### 决策
+- 用户要求"目录名都改成中文"——所有用户可见的数据目录（而非 Python 标识符、dict keys、插件源码目录）改成中文
+- 范围：`~/presales/` → `~/售前/`；顶层 `opportunities/cases/knowledge/templates/` → `商机/归档/知识库/模板/`；knowledge 子目录 `{about,certs,case-studies,products,competitors,team}` → `{公司介绍,资质证书,客户案例,产品档案,竞品,团队}`；opportunity 子目录 `{rfp,rfp/original,analysis,draft,draft/chapters}` → `{招标文件,招标文件/原件,分析,草稿,草稿/章节}`
+- 保留英文：文件名（`.version`、`config.yaml`、`company-profile.yaml`、`README.md`、`meta.yaml`、`rfp.yaml`、`analysis.md`、`outline.md`、`extracted.md`）；Python dict keys 作为 API 合约英文；插件源码目录 `scripts/` / `skills/` / `knowledge-seed/` / `templates/`（容器名）
+- 为什么：用户要手工编辑 yaml、丢 RFP 文件、读 draft 输出，中文目录名在 Finder 和 `ls` 里一眼能认，降低认知负担
+
+### 本次产出
+
+**Plugin 目录 rename（git mv）**：
+- `knowledge-seed/{about → 公司介绍, certs → 资质证书, case-studies → 客户案例, products → 产品档案, competitors → 竞品, team → 团队}`
+- `templates/products → templates/产品档案`
+
+**代码改动**：
+
+- `scripts/ps_paths.py`（145 → 149 行）：
+  - `presales_home()` 默认从 `~/presales` 改为 `~/售前`
+  - `knowledge_paths()` 的 path values 全部中文（dict keys 仍英文做 API 合约）
+  - `opportunity_paths()` 的 path values 全部中文（dict keys 英文）
+  - 头部 docstring 加资源命名约定说明
+
+- `scripts/ps_setup_utils.py`（70 行）：
+  - `DEFAULT_DIRS` 全部改成 `商机 / 归档 / 知识库 / 知识库/公司介绍 / ... / 模板`
+
+- `scripts/ps_setup.py`（296 行）：
+  - `--help` docstring 里 `opportunities/cases/knowledge` → `商机/归档/知识库`
+  - `init_skeleton` 的"下一步"提示使用新路径
+  - `import_from` 遍历的子目录名改中文
+  - `check_status` 显示标签改中文（`opportunities:` → `商机:` / `cases:` → `归档:`），dict keys 保留英文访问
+
+- `templates/outline-zh-CN.yaml`：章节 id 全部中文化（`01-executive-summary` → `01-项目概述` 等 10 章）
+
+**文档改动（sed 批量 + 手工 patch）**：
+- 4 个 `skills/*/SKILL.md`、`CLAUDE.md`、`README.md`、`docs/design/architecture-v0.1.md`、`knowledge-seed/README.md` + 6 子目录 README、4 个 `templates/*.yaml` 注释头
+- sed 主要替换列表：`~/presales/` → `~/售前/`、`<presales>/` → `<售前>/`、`opportunities/` → `商机/`、`knowledge/` 及其所有子目录、`templates/` → `模板/`、`rfp/original/` → `招标文件/原件/`、`analysis/rfp.yaml` → `分析/rfp.yaml`、`draft/chapters/` → `草稿/章节/`、`/cases/` → `/归档/` 等 22 条规则
+- sed 漏掉的（手工修）：不带斜线的 `rfp/` / `analysis` / `draft/chapters`（rfp-parse Phase 0 mkdir 里）、`<parent>/presales/`（CLAUDE.md 和 setup SKILL.md）、README quickstart tree diagram 里的裸目录名
+- `skills/rfp-parse/SKILL.md` Phase 0 mkdir 命令：`HOME_DIR="${PRESALES_HOME:-$HOME/售前}"` + `mkdir -p 招标文件/原件 分析 草稿/章节`
+- `.gitignore`：加 `售前/ 商机/ 归档/`，保留 `presales/ .presales/ opportunities/` 做老数据防御
+- `CHANGELOG.md`：Unreleased 段加全面中文化说明
+
+### 端到端验证
+```
+PRESALES_HOME=/tmp/ps-zh-final python3 scripts/ps_setup.py --init --config-json '{}'
+→ 10 个目录全部中文：
+   /tmp/ps-zh-final/{归档,模板,模板/产品档案,商机,知识库}
+   /tmp/ps-zh-final/知识库/{公司介绍,资质证书,客户案例,产品档案,竞品,团队}
+→ 14 个文件：
+   .version / config.yaml / 知识库/company-profile.yaml
+   7 份 knowledge README（含中文目录里）
+   4 份 templates seed（含 模板/产品档案/example.yaml）
+→ "下一步" 提示路径：商机/<项目名>/招标文件/原件/ ✓
+→ check_status 显示：商机: 0 个 / 归档: 0 个 ✓
+```
+
+### 行数汇总（全部 ≤ 300）
+- scripts/ps_paths.py: 149
+- scripts/ps_setup_utils.py: 70
+- scripts/ps_setup.py: 296
+- skills/setup/SKILL.md: 283
+- skills/rfp-parse/SKILL.md: 115
+- skills/rfp-analyze/SKILL.md: 119
+- skills/bid-draft/SKILL.md: 121
+
+### 未触及
+- `progress.md` 历史 session 条目保留英文（历史记录）
+- `CHANGELOG.md` 历史 `[0.1.0]` 条目保留（历史）
+- `.gitignore` 老 pattern 保留（防御性）

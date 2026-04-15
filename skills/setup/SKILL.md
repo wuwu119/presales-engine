@@ -1,6 +1,6 @@
 ---
 name: ps:setup
-description: 初始化 presales-engine 用户数据目录。首次使用必须运行，默认在 ~/presales/ 创建骨架、config.yaml 和种子模板，支持 --home 指定其他位置。支持 --reset 重置和 --import 从旧数据目录导入。当用户说"初始化售前"、"ps setup"、"presales 初始化"、"配置 presales-engine"时触发。
+description: 初始化 presales-engine 用户数据目录。首次使用必须运行，默认在 ~/售前/ 创建骨架、config.yaml 和种子模板，支持 --home 指定其他位置。支持 --reset 重置和 --import 从旧数据目录导入。当用户说"初始化售前"、"ps setup"、"presales 初始化"、"配置 presales-engine"时触发。
 argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
 ---
 
@@ -29,7 +29,7 @@ argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
 |--------|------|------|
 | 1 (最高) | 环境变量 `PRESALES_HOME` | CI / 一次性覆盖 / 高级用户 |
 | 2 | 指针文件 `~/.config/presales-engine/home` | 由 `ps:setup --home <path>` 持久化 |
-| 3 (默认) | `~/presales/` | **可见目录**，方便用户手工编辑 |
+| 3 (默认) | `~/售前/` | **可见目录**，方便用户手工编辑 |
 
 `--home <path>` 标志会写入指针文件并对当前 init 生效。后续所有 skill 自动遵循。
 
@@ -55,13 +55,13 @@ argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
 #### Step 1：问父目录
 
 调用 `AskUserQuestion`：
-- `question`: "presales workspace 放在哪个父目录下？（将在此目录创建 `presales/` 子目录，默认 `~/`）"
+- `question`: "售前 workspace 放在哪个父目录下？（将在此目录创建 `售前/` 子目录，默认 `~/`）"
 - `input_type`: text / free-form，默认值 `~/`
 
-派生完整路径：`<parent>/presales/`。展开 `~/` 为绝对路径。例：
-- 用户输 `~/` → home = `/Users/<you>/presales`
-- 用户输 `~/Documents/` → home = `/Users/<you>/Documents/presales`
-- 用户输 `/Users/<you>/work/` → home = `/Users/<you>/work/presales`
+派生完整路径：`<parent>/售前/`。展开 `~/` 为绝对路径。例：
+- 用户输 `~/` → home = `/Users/<you>/售前`
+- 用户输 `~/Documents/` → home = `/Users/<you>/Documents/售前`
+- 用户输 `/Users/<you>/work/` → home = `/Users/<you>/work/售前`
 
 拿到派生 home 后，直接告诉用户"workspace 将建在 `<derived-home>`"，然后进入 Step 2（**不**问确认，减少问答数）。
 
@@ -141,7 +141,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
   --config-json '{"company_name_zh":"...","company_name_en":"...","industry":"...","language":"zh-CN","currency":"CNY"}'
 ```
 
-脚本会自动创建完整的知识库骨架（`knowledge/{about,certs,case-studies,products,competitors,team}/` 各带 README.md 填充指南），并把 Step 1 的路径持久化到 `~/.config/presales-engine/home` 指针文件。
+脚本会自动创建完整的知识库骨架（`知识库/{about,certs,case-studies,products,competitors,team}/` 各带 README.md 填充指南），并把 Step 1 的路径持久化到 `~/.config/presales-engine/home` 指针文件。
 
 **选 ✏️**：再调用 `AskUserQuestion`：
 - `question`: "要修改哪个字段？"
@@ -175,13 +175,13 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
 2. `AskUserQuestion`：`"公司英文名称（可跳过）"`（text input，可选）
 3. `AskUserQuestion`：`"所在行业（一句话描述）"`（text input，必填）
 
-收集完后组装成 `--config-json` 调用脚本，默认 `language=zh-CN` / `currency=CNY`，其他字段全部留空。用户后续可手工编辑 `~/presales/knowledge/company-profile.yaml` 补充。
+收集完后组装成 `--config-json` 调用脚本，默认 `language=zh-CN` / `currency=CNY`，其他字段全部留空。用户后续可手工编辑 `~/售前/知识库/company-profile.yaml` 补充。
 
 ---
 
 > ⚠️ **证据库 / 产品库 / 案例库的构建不归 `ps:setup` 管**
 >
-> `company-profile.yaml` 里的 `qualifications[]` / `case_references[]` / `team[]` 字段，以及 `knowledge/products/*.yaml` 需要基于真实文件证据（ISO 证书 PDF、案例 PPT、产品手册等）建立。
+> `company-profile.yaml` 里的 `qualifications[]` / `case_references[]` / `team[]` 字段，以及 `知识库/产品档案/*.yaml` 需要基于真实文件证据（ISO 证书 PDF、案例 PPT、产品手册等）建立。
 > v0.1 的 setup **只写基础公司信息**，这些高价值字段留空。
 > 未来版本会引入独立的 `ps:knowledge-ingest`（暂定名）skill，让用户按标准格式提供证据文件，预处理成标准化的知识库条目。设计待定。
 
@@ -196,7 +196,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
   --config-json '{"company_name_zh":"...","industry":"...",...}'
 ```
 
-`--home` 可省略（默认 `~/presales/`），脚本按 3 层 resolution 解析。
+`--home` 可省略（默认 `~/售前/`），脚本按 3 层 resolution 解析。
 
 **`--config-json` 字段约定**（B 路径组装时也按此 schema）：
 
@@ -245,13 +245,13 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" --init --config-json '<json>
 ${PRESALES_HOME}/
 ├── .version                    # 插件版本号
 ├── config.yaml                 # 由交互式问答填充
-├── opportunities/              # 空目录
+├── 商机/              # 空目录
 ├── cases/                      # 空目录
-├── knowledge/
+├── 知识库/
 │   ├── company-profile.yaml    # 由交互式问答填充
 │   ├── products/               # 含种子 products/example.yaml
 │   └── competitors/            # 空目录
-└── templates/                  # 含种子 outline-zh-CN.yaml 等
+└── 模板/                  # 含种子 outline-zh-CN.yaml 等
 ```
 
 ## 约束
@@ -278,6 +278,6 @@ setup 成功后必须输出：
 > ✅ 已初始化到 `${PRESALES_HOME}`。
 >
 > 下一步：
-> 1. 把 RFP 文件放到 `${PRESALES_HOME}/opportunities/<项目名>/rfp/original/`
+> 1. 把 RFP 文件放到 `${PRESALES_HOME}/商机/<项目名>/招标文件/原件/`
 > 2. 运行 `/ps:rfp-parse <项目名>` 解析
-> 3. 按需补充 `${PRESALES_HOME}/knowledge/company-profile.yaml`（案例、资质、团队）
+> 3. 按需补充 `${PRESALES_HOME}/知识库/company-profile.yaml`（案例、资质、团队）

@@ -7,7 +7,11 @@
 Resolution order for the user data root:
     1. PRESALES_HOME env var (highest priority — for CI / one-shot overrides)
     2. Pointer file at ~/.config/presales-engine/home (set during ps:setup --init)
-    3. Default ~/presales/ (visible, not hidden, intended for daily user editing)
+    3. Default ~/售前/ (visible, not hidden, intended for daily user editing)
+
+All on-disk directory names under the user data root are Chinese by design
+(商机 / 归档 / 知识库 / 模板 / 知识库 子目录 / opportunity 子目录），for user
+readability. Dict keys and Python identifiers stay English as API contract.
 
 Environment variables:
     PRESALES_HOME:      user data root override
@@ -52,7 +56,7 @@ def presales_home() -> Path:
     pointer = _read_pointer()
     if pointer is not None:
         return pointer
-    return (Path.home() / "presales").resolve()
+    return (Path.home() / "售前").resolve()
 
 
 def presales_home_source() -> str:
@@ -78,48 +82,48 @@ def plugin_root() -> Path:
 
 def opportunity_root(slug: str) -> Path:
     """Return root directory for a given opportunity slug."""
-    return presales_home() / "opportunities" / slug
+    return presales_home() / "商机" / slug
 
 
 def opportunity_paths(slug: str) -> dict[str, Path]:
-    """Return all key paths for a given opportunity slug."""
+    """Return all key paths for a given opportunity slug. Dict keys stay English."""
     root = opportunity_root(slug)
     return {
         "root": root,
         "meta": root / "meta.yaml",
-        "rfp_dir": root / "rfp",
-        "rfp_original": root / "rfp" / "original",
-        "rfp_extracted": root / "rfp" / "extracted.md",
-        "analysis_dir": root / "analysis",
-        "rfp_yaml": root / "analysis" / "rfp.yaml",
-        "analysis_md": root / "analysis" / "analysis.md",
-        "draft_dir": root / "draft",
-        "outline": root / "draft" / "outline.md",
-        "chapters": root / "draft" / "chapters",
-        "coverage_report": root / "draft" / "coverage-report.md",
+        "rfp_dir": root / "招标文件",
+        "rfp_original": root / "招标文件" / "原件",
+        "rfp_extracted": root / "招标文件" / "extracted.md",
+        "analysis_dir": root / "分析",
+        "rfp_yaml": root / "分析" / "rfp.yaml",
+        "analysis_md": root / "分析" / "analysis.md",
+        "draft_dir": root / "草稿",
+        "outline": root / "草稿" / "outline.md",
+        "chapters": root / "草稿" / "章节",
+        "coverage_report": root / "草稿" / "coverage-report.md",
         "review": root / "review.md",
     }
 
 
 def knowledge_paths() -> dict[str, Path]:
-    """Return knowledge base paths under PRESALES_HOME."""
+    """Return knowledge base paths under PRESALES_HOME. Dict keys stay English."""
     home = presales_home()
-    knowledge = home / "knowledge"
+    knowledge = home / "知识库"
     return {
         "home": home,
         "config": home / "config.yaml",
         "version": home / ".version",
         "knowledge": knowledge,
         "company_profile": knowledge / "company-profile.yaml",
-        "about": knowledge / "about",
-        "certs": knowledge / "certs",
-        "case_studies": knowledge / "case-studies",
-        "products": knowledge / "products",
-        "competitors": knowledge / "competitors",
-        "team": knowledge / "team",
-        "templates": home / "templates",
-        "cases": home / "cases",
-        "opportunities": home / "opportunities",
+        "about": knowledge / "公司介绍",
+        "certs": knowledge / "资质证书",
+        "case_studies": knowledge / "客户案例",
+        "products": knowledge / "产品档案",
+        "competitors": knowledge / "竞品",
+        "team": knowledge / "团队",
+        "templates": home / "模板",
+        "cases": home / "归档",
+        "opportunities": home / "商机",
     }
 
 

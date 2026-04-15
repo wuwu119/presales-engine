@@ -16,16 +16,16 @@ from pathlib import Path
 VERSION = "0.1.0"
 
 DEFAULT_DIRS: list[str] = [
-    "opportunities",
-    "cases",
-    "knowledge",
-    "knowledge/about",
-    "knowledge/certs",
-    "knowledge/case-studies",
-    "knowledge/products",
-    "knowledge/competitors",
-    "knowledge/team",
-    "templates",
+    "商机",
+    "归档",
+    "知识库",
+    "知识库/公司介绍",
+    "知识库/资质证书",
+    "知识库/客户案例",
+    "知识库/产品档案",
+    "知识库/竞品",
+    "知识库/团队",
+    "模板",
 ]
 
 # Paths that reset_home() refuses to touch even at depth >= 3.
