@@ -25,7 +25,7 @@ from pathlib import Path
 
 # Local imports from same scripts/ directory
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ps_paths import (knowledge_paths, plugin_root, presales_home, presales_home_source, seed_templates_dir, write_pointer)  # noqa: E402
+from ps_paths import (knowledge_paths, plugin_root, presales_home, presales_home_source, seed_knowledge_dir, seed_templates_dir, write_pointer)  # noqa: E402
 from ps_setup_utils import (  # noqa: E402
     DEFAULT_DIRS,
     VERSION,
@@ -92,10 +92,10 @@ def init_skeleton(config: dict, force: bool = False) -> int:
                 "highlights": _normalize_highlights(config.get("highlights")),
             })
 
-        _copy_seed_templates(kp["templates"], force=force)
+        _copy_seed_dir(seed_templates_dir(), kp["templates"], force=force)
+        _copy_seed_dir(seed_knowledge_dir(), kp["knowledge"], force=force)
 
-        # .version is written LAST so a crash mid-init leaves no marker
-        # and a re-run of --init will retry from the failed step.
+        # .version is written LAST so partial-init failures stay recoverable.
         version_file.write_text(VERSION, encoding="utf-8")
     except OSError as e:
         print(f"❌ 初始化失败：{e}", file=sys.stderr)
@@ -110,17 +110,16 @@ def init_skeleton(config: dict, force: bool = False) -> int:
     return 0
 
 
-def _copy_seed_templates(target_dir: Path, force: bool) -> None:
-    """Copy plugin's seed templates/ into the user's templates dir."""
-    seed = seed_templates_dir()
-    if not seed.exists():
+def _copy_seed_dir(source: Path, target: Path, force: bool) -> None:
+    """Recursively copy a plugin seed dir into the user workspace target."""
+    if not source.exists():
         return
-    target_dir.mkdir(parents=True, exist_ok=True)
-    for item in seed.rglob("*"):
+    target.mkdir(parents=True, exist_ok=True)
+    for item in source.rglob("*"):
         if not item.is_file():
             continue
-        rel = item.relative_to(seed)
-        dst = target_dir / rel
+        rel = item.relative_to(source)
+        dst = target / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         if not dst.exists() or force:
             shutil.copy2(item, dst)

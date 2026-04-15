@@ -29,21 +29,31 @@ presales-engine/
 ├── .claude-plugin/         # 插件 manifest
 ├── skills/                 # 4 个 skill 定义
 ├── scripts/                # 路径解析 + setup 脚本
-├── templates/              # 种子模板（config / company-profile / outline）
+├── templates/              # 种子模板（config / company-profile / outline / products/example）
+├── knowledge-seed/         # 知识库骨架种子（每个子目录一个 README.md 填充指南）
 ├── docs/                   # 架构设计
 └── CLAUDE.md / README.md
 ```
 
-**数据**（`~/presales/`，用户可写，不在 Git）：
+**数据**（`<user-chosen>/presales/`，用户可写，不在 Git；默认 `~/presales/`，交互式 setup 时用户可指定父目录）：
 ```
-~/presales/
-├── .version                # 当前数据目录对应的插件版本
-├── config.yaml             # 用户配置
-├── opportunities/{slug}/   # 每个商机独立目录
-├── cases/                  # 历史案例库
-├── knowledge/              # 公司档案、产品、竞品
-└── templates/              # 用户自定义模板（覆盖种子）
+<parent>/presales/
+├── .version                        # 当前数据目录对应的插件版本
+├── config.yaml                     # 用户配置
+├── opportunities/{slug}/           # 每个商机独立目录
+├── cases/                          # 归档的 opportunity（跑完的单整体搬进来）
+├── knowledge/                      # 知识库根（README.md 总览 + 以下子目录）
+│   ├── company-profile.yaml        # 主档案（相对路径引用下面的文件）
+│   ├── about/                      # 公司介绍材料（PDF/PPT/MD）
+│   ├── certs/                      # 资质证书（ISO / 许可 / 测评）
+│   ├── case-studies/               # 客户案例资料库（可复用，区别于顶层 cases/ 归档）
+│   ├── products/                   # 产品 / 服务档案（YAML + 附件）
+│   ├── competitors/                # 竞品档案（v0.2 用）
+│   └── team/                       # 团队资质（花名册 + 个人证书 + 简历）
+└── templates/                      # 用户自定义模板（覆盖插件种子）
 ```
+
+每个 `knowledge/*/` 子目录启动时带一份 README.md（由 `ps:setup` 从 `knowledge-seed/` 拷贝），说明放什么、命名约定、格式、谁引用。填充 `knowledge/` 不归 `ps:setup` 管，走手工或未来独立的 `ps:knowledge-ingest` skill。
 
 **数据目录路径 resolution（3 层，优先级从高到低）**：
 1. `PRESALES_HOME` 环境变量（CI / 一次性覆盖）

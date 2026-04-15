@@ -30,29 +30,44 @@
 ## 3. 用户数据目录契约
 
 ```
-${PRESALES_HOME}/
-├── .version                    # 插件版本号（升级时迁移用）
-├── config.yaml                 # 用户配置
+${PRESALES_HOME}/                    # 默认 ~/presales/；交互式 setup 时用户可指定父目录
+├── .version                         # 插件版本号（升级时迁移用）
+├── config.yaml                      # 用户配置
 ├── opportunities/
 │   └── {slug}/
 │       ├── meta.yaml
 │       ├── rfp/
-│       │   ├── original/       # 原始招标文件
-│       │   └── extracted.md    # 文本提取（Markdown）
+│       │   ├── original/            # 原始招标文件
+│       │   └── extracted.md         # 文本提取（Markdown）
 │       ├── analysis/
 │       │   ├── rfp.yaml
 │       │   └── analysis.md
 │       ├── draft/
 │       │   ├── outline.md
 │       │   └── chapters/
-│       └── review.md           # v0.2 引入
-├── cases/                      # 归档的 opportunity
-├── knowledge/
-│   ├── company-profile.yaml
-│   ├── products/
-│   └── competitors/            # v0.2 引入
-└── templates/                  # 用户自定义（覆盖插件种子）
+│       └── review.md                # v0.2 引入
+├── cases/                           # 归档的 opportunity（跑完的单整体搬进来）
+├── knowledge/                       # 知识库根
+│   ├── README.md                    # 总览 + 引用规则（由 knowledge-seed/ 种子提供）
+│   ├── company-profile.yaml         # 主档案，用相对路径引用下面的文件
+│   ├── about/                       # 公司介绍材料（PDF / PPT / Markdown）
+│   │   └── README.md                # 放什么 / 命名约定 / 格式 / 引用方
+│   ├── certs/                       # 资质证书（ISO / 许可 / 测评 PDF）
+│   │   └── README.md
+│   ├── case-studies/                # 客户案例资料库（可复用，区别于顶层 cases/ 归档）
+│   │   └── README.md
+│   ├── products/                    # 产品 / 服务档案（YAML + 可选附件）
+│   │   └── README.md
+│   ├── competitors/                 # 竞品档案（v0.2 占位）
+│   │   └── README.md
+│   └── team/                        # 团队资质（花名册 + 个人证书 + 简历）
+│       └── README.md
+└── templates/                       # 用户自定义模板（覆盖插件种子）
 ```
+
+**知识库填充不归 `ps:setup` 管**：setup 只建空骨架 + 拷贝 7 份 README 填充指南（来自 `knowledge-seed/`）。实际填充走手工编辑或未来的 `ps:knowledge-ingest` skill。
+
+**`cases/` vs `knowledge/case-studies/`**：前者是已归档的 opportunity 目录树（原始 RFP + 生成的标书 + 复盘），后者是可复用的客户案例资料库（客户授权可公开引用的材料）。两者概念不同，命名必须区分。
 
 ## 4. Skill 契约
 

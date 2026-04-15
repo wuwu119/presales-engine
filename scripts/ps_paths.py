@@ -104,14 +104,19 @@ def opportunity_paths(slug: str) -> dict[str, Path]:
 def knowledge_paths() -> dict[str, Path]:
     """Return knowledge base paths under PRESALES_HOME."""
     home = presales_home()
+    knowledge = home / "knowledge"
     return {
         "home": home,
         "config": home / "config.yaml",
         "version": home / ".version",
-        "knowledge": home / "knowledge",
-        "company_profile": home / "knowledge" / "company-profile.yaml",
-        "products": home / "knowledge" / "products",
-        "competitors": home / "knowledge" / "competitors",
+        "knowledge": knowledge,
+        "company_profile": knowledge / "company-profile.yaml",
+        "about": knowledge / "about",
+        "certs": knowledge / "certs",
+        "case_studies": knowledge / "case-studies",
+        "products": knowledge / "products",
+        "competitors": knowledge / "competitors",
+        "team": knowledge / "team",
         "templates": home / "templates",
         "cases": home / "cases",
         "opportunities": home / "opportunities",
@@ -121,6 +126,11 @@ def knowledge_paths() -> dict[str, Path]:
 def seed_templates_dir() -> Path:
     """Return the plugin's seed templates directory (read-only)."""
     return plugin_root() / "templates"
+
+
+def seed_knowledge_dir() -> Path:
+    """Return the plugin's knowledge-base seed directory (READMEs etc.)."""
+    return plugin_root() / "knowledge-seed"
 
 
 if __name__ == "__main__":

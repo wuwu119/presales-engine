@@ -306,3 +306,70 @@ P3 剩余：8（C-06 关闭）
 - 重启新 Claude Code 窗口，重新跑 `/ps:setup`，验证 URL 流程是否真的按新 SKILL.md 跑
 - 设计 `ps:knowledge-ingest` 的输入格式规范（单独的 brainstorm session）
 - 推 GitHub
+
+## Session: 2026-04-15 (cont.) — 父目录交互 + 完整知识库骨架
+
+### 决策
+- 用户要求一次性做完：(1) 交互式选父目录；(2) 生成完整知识库骨架并带填充指南
+- 父目录策略：Q1 让用户输父目录（默认 `~/`），派生完整 home = `<parent>/presales/` 后再问 URL
+- 知识库骨架策略：建 6 个子目录（`about`/`certs`/`case-studies`/`products`/`competitors`/`team`），每个带一份 README.md 填充指南，从插件的 `knowledge-seed/` 种子目录拷贝
+- 命名关键：`knowledge/case-studies/`（可复用案例资料库）vs 顶层 `cases/`（归档 opportunity），语义不同命名必须区分
+
+### 本次产出
+
+**新增插件目录 `knowledge-seed/`（7 个 README 文件）**：
+- `knowledge-seed/README.md` — 总览 + 引用规则 + `cases/` vs `case-studies/` 解释
+- `knowledge-seed/about/README.md` — 公司介绍材料
+- `knowledge-seed/certs/README.md` — 资质证书（带推荐命名约定 `<cert>-<issuer>-<expiry>.pdf`）
+- `knowledge-seed/case-studies/README.md` — 客户案例资料库（强调 public_usable 语义）
+- `knowledge-seed/products/README.md` — 产品档案库（指向 templates/products/example.yaml schema）
+- `knowledge-seed/competitors/README.md` — v0.2 占位（明确说 v0.1 不用）
+- `knowledge-seed/team/README.md` — 团队资质（含 roster.yaml schema 示例）
+
+每个 README 按固定结构：放什么 / 命名约定 / 格式 / 在 company-profile.yaml 里的引用 / 谁引用它。
+
+**`scripts/ps_paths.py`（135 → 145 行）**：
+- `knowledge_paths()` 加 5 个新子路径键（`about` / `certs` / `case_studies` / `team`；products / competitors 原来就有）
+- 新增 `seed_knowledge_dir()` 返回 `plugin_root() / "knowledge-seed"`
+
+**`scripts/ps_setup_utils.py`（66 → 70 行）**：
+- `DEFAULT_DIRS` 加 4 个新子目录（`knowledge/{about,certs,case-studies,team}`；products / competitors 原来就有）
+
+**`scripts/ps_setup.py`（297 → 296 行，净 -1）**：
+- 把 `_copy_seed_templates` 通用化为 `_copy_seed_dir(source, target, force)` — 不再写死"templates"
+- `init_skeleton()` 现在调用两次：一次拷 templates，一次拷 knowledge-seed
+- 导入清单加 `seed_knowledge_dir`
+
+**`skills/setup/SKILL.md`（260 → 283 行）**：
+- Step 1 新增"问父目录"（AskUserQuestion text input，默认 `~/`），派生 `<parent>/presales/` 完整路径
+- 原 Step 1（问 URL）变 Step 2，后续 Step 编号全部 +1
+- Step 7（原 Step 6）"选 ✅"分支**必须**带 `--home <Step 1 派生的完整路径>` 调脚本
+- 说明脚本会自动创建完整知识库骨架 + 拷 7 份 README
+
+**文档同步**：
+- `CLAUDE.md` 程序/数据分离段重写：程序侧加 `knowledge-seed/`；数据侧 `knowledge/` 展开到 6 个子目录带注释
+- `docs/design/architecture-v0.1.md` §3 用户数据目录契约：知识库 tree 展开到 6 个子目录 + 每个带 README；加 "`cases/` vs `knowledge/case-studies/`" 命名区分说明
+
+### 端到端验证
+
+```
+PRESALES_HOME=/tmp/... python3 scripts/ps_setup.py --init --config-json '{}'
+→ 创建了 10 个目录 + 14 个文件：
+  - cases/ opportunities/ templates/ templates/products/
+  - knowledge/ + 6 子目录（about/certs/case-studies/products/competitors/team）
+  - knowledge/README.md + 6 个子目录 README.md + company-profile.yaml
+  - templates/ 原 4 份种子模板
+  - .version + config.yaml
+```
+
+### 行数汇总
+- scripts/ps_setup.py: 296 / 300 ✅
+- scripts/ps_paths.py: 145 / 300 ✅
+- scripts/ps_setup_utils.py: 70 / 300 ✅
+- skills/setup/SKILL.md: 283 / 300 ✅
+- 6 个 knowledge-seed README: 28-81 行不等
+
+### 未解问题
+- 交互式父目录问答未在真实 Claude Code 里端到端验证（WebFetch + AskUserQuestion + --home 传递）
+- `ps:knowledge-ingest` 设计仍然是占位，v0.2 才做
+- 已初始化过的用户如果改父目录，没有迁移命令（要手工 mv）

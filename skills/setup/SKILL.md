@@ -52,17 +52,30 @@ argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
 
 > **交互工具硬性约束**：所有用户输入**必须**通过平台的 `AskUserQuestion` 工具（Claude Code 原生）或等效工具。**禁止**在对话里写"请选择：1. X / 2. Y / 3. Z"这种文本式选单让用户手打回复——那不是交互对话，是聊天机器人式的退化。每一次需要用户决策的地方都走 `AskUserQuestion`。
 
-#### Step 1：问 URL
+#### Step 1：问父目录
+
+调用 `AskUserQuestion`：
+- `question`: "presales workspace 放在哪个父目录下？（将在此目录创建 `presales/` 子目录，默认 `~/`）"
+- `input_type`: text / free-form，默认值 `~/`
+
+派生完整路径：`<parent>/presales/`。展开 `~/` 为绝对路径。例：
+- 用户输 `~/` → home = `/Users/<you>/presales`
+- 用户输 `~/Documents/` → home = `/Users/<you>/Documents/presales`
+- 用户输 `/Users/<you>/work/` → home = `/Users/<you>/work/presales`
+
+拿到派生 home 后，直接告诉用户"workspace 将建在 `<derived-home>`"，然后进入 Step 2（**不**问确认，减少问答数）。
+
+#### Step 2：问 URL
 
 调用 `AskUserQuestion`：
 - `question`: "请提供公司官网 URL（例如 `https://example.com`）"
 - `input_type`: text / free-form
 
-#### Step 2：抓取（Phase 1）
+#### Step 3：抓取（Phase 1）
 
 用 `WebFetch` 抓取用户给的 URL。如果主页首屏信息不足（纯 SPA / 只有 logo），**最多再抓一个** `/about` 或 `/company` 子页。**禁止深爬**。
 
-#### Step 3：抽取最小字段（Phase 2）
+#### Step 4：抽取最小字段（Phase 2）
 
 从抓到的 HTML / Markdown 内容里，**只**抽取这些字段：
 
@@ -87,7 +100,7 @@ argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
    - `company.product_lines[]`
    - 这些字段的建设不归 setup 管，留给未来独立的知识库构建流程
 
-#### Step 4：展示 Review 表格（Phase 3 前半）
+#### Step 5：展示 Review 表格（Phase 3 前半）
 
 用**一个紧凑的 Markdown 表格**展示抽取结果，禁止一个字段一个字段 dump。格式必须长这样：
 
@@ -106,7 +119,7 @@ argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
 
 未识别的字段值显示为 `null`，来源列显示为 `—`。所有 Markdown 代码块输出给用户一次看完。
 
-#### Step 5：用 `AskUserQuestion` 要确认（Phase 3 后半）
+#### Step 6：用 `AskUserQuestion` 要确认（Phase 3 后半）
 
 表格之后**立刻**调用 `AskUserQuestion`：
 - `question`: "以上信息是否正确？"
@@ -117,17 +130,27 @@ argument-hint: "[--home <path>] [--reset] [--import <path>] [--check]"
 
 **禁止直接输出 "请选择：1/2/3" 让用户打字回复。必须走 `AskUserQuestion` 让用户点选。**
 
-#### Step 6：按用户选择分叉
+#### Step 7：按用户选择分叉
 
-**选 ✅**：直接调用脚本写入：
+**选 ✅**：调用脚本写入，**必须**带上 Step 1 派生的 `--home`：
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
   --init \
+  --home <Step 1 派生的完整路径> \
   --config-json '{"company_name_zh":"...","company_name_en":"...","industry":"...","language":"zh-CN","currency":"CNY"}'
 ```
 
-`--home` 默认不传（用 `~/presales/`）。
+脚本会自动创建完整的知识库骨架（`knowledge/{about,certs,case-studies,products,competitors,team}/` 各带 README.md 填充指南），并把 Step 1 的路径持久化到 `~/.config/presales-engine/home` 指针文件。
+
+**选 ✏️**：再调用 `AskUserQuestion`：
+- `question`: "要修改哪个字段？"
+- options: 列出 Step 5 表格里所有字段作为 single-select 选项
+- 用户选中字段后，再调一次 `AskUserQuestion` 问新值（text input）
+- 把修正合并进抽取结果，**返回 Step 5 重新展示表格** + Step 6 再问一次是否确认
+- 循环直到用户选 ✅ 或 ❌
+
+**选 ❌**：进 B-fallback 段。
 
 **选 ✏️**：再调用 `AskUserQuestion`：
 - `question`: "要修改哪个字段？"

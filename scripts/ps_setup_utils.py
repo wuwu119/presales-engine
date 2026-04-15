@@ -19,8 +19,12 @@ DEFAULT_DIRS: list[str] = [
     "opportunities",
     "cases",
     "knowledge",
+    "knowledge/about",
+    "knowledge/certs",
+    "knowledge/case-studies",
     "knowledge/products",
     "knowledge/competitors",
+    "knowledge/team",
     "templates",
 ]
 
