@@ -178,21 +178,21 @@ ps:knowledge-ingest 自动提取可复用资产
 
 这层 skill 独立于 pipeline，任何阶段都可以跑。是系统的长期资产层。
 
-#### `ps:knowledge-ingest` 🚧 v0.2（**高优先级，先定设计**）
+#### `ps:knowledge-ingest` 🟡 v0.2-MVP（**certs 已实现，待真实 PDF 验收**）
 
-- **职责**：按标准格式把用户提供的证据文件批量入库
-- **输入格式**（待定）：
-  - 选项 A：目录约定（用户把文件按 `ingest/certs/` / `ingest/cases/` 摆好，跑 ingest 自动归类）
-  - 选项 B：manifest 文件（`ingest.yaml` 里列每个文件的类型 + 元数据）
-  - 选项 C：混合（文件 + 可选 manifest，manifest 缺失时用 LLM 推断）
+- **职责**：把 `知识库/{子目录}/` 下的证据文件批量登记进 `company-profile.yaml`
+- **输入格式**：**纯目录约定**（决策见 `docs/brainstorms/knowledge-ingest-requirements.md`）
+  - 用户只扔 PDF，不写 YAML / manifest
+  - 原地扫描，不移动 / 拷贝
+  - 登记状态以 `qualifications[].evidence_file` 为唯一真相源
 - **处理流程**：
-  1. 识别文件类型（PDF/DOCX/PPTX/图片扫描）
-  2. 提取元数据（证书有效期、客户名、项目金额、产品功能点）
-  3. 按类型映射到 YAML schema
-  4. 拷贝原始文件到 `知识库/{子目录}/`
-  5. 生成 / 更新 `company-profile.yaml` 的引用条目
-- **价值**：整个证据链的起点。所有 `qualifications` / `case_references` / `产品档案` 都靠它。设计对了，后续 rfp-analyze 就能做真实可追溯的 Go/No-Go
-- **v0.2 拆解**：先定输入格式规范（纯设计无代码），再实现 certs/ 子流程作为 MVP
+  1. `scan` 差分 `知识库/资质证书/` 与 `company-profile.yaml`
+  2. Claude 用 Read 工具读每个新 PDF，按 `references/cert-extraction-prompt.md` schema 输出 JSON + 置信度
+  3. 紧凑表格呈现 + AskUserQuestion 批量确认
+  4. `apply` 把批准条目 append 进 `qualifications[]`，生成 `.bak` 备份
+- **MVP 范围**：`certs/` 一个子目录。`cases / products / about / competitors / team` 推迟到 v0.3
+- **价值**：整个证据链的起点。`rfp-analyze` / `bid-draft` 从此有真实 qualifications 可用
+- **扩展路径**：`scripts/ps_knowledge_ingest.py` 的 `--type` 参数是其他类型接入点，v0.3 按同模板扩展
 
 #### `ps:case-match` 🚧 v0.3
 - **职责**：历史案例检索
@@ -260,7 +260,7 @@ ps:knowledge-ingest 自动提取可复用资产
 
 ### v0.2（下一版本，重点：质量门槛 + 知识资产基础）
 
-- 🚧 `ps:knowledge-ingest`（**先定设计，再写代码**）
+- 🟡 `ps:knowledge-ingest` — certs MVP 已实现（`feat/knowledge-ingest-certs`），待真实 PDF 端到端验收
 - 🚧 `ps:retrospect`（数据回路闭环）
 - 🚧 `ps:bid-review`（多角色批判，对标 ce:review）
 - 🚧 `ps:bid-compliance`（合规清单，把 v0.1 没实现的硬门槛补上）
@@ -296,9 +296,9 @@ ps:knowledge-ingest 自动提取可复用资产
 
 按 ROI × 依赖关系排序。前 3 个是必做，后 4 个按需：
 
-1. **`ps:knowledge-ingest`（设计先行）**
+1. **`ps:knowledge-ingest`（certs MVP 已实现，待验收）**
    - 为什么第一：定了输入格式之后整个证据链才有起点。不定它，所有后续 skill 都要假设知识库是空的或者靠用户手写，体验差
-   - v0.2 拆解：先一个独立 brainstorm session 定规范 → 再实现 certs/ 子流程 MVP → 再补 cases/products/
+   - v0.2 进度：brainstorm → plan → 实现已完成（`docs/brainstorms/knowledge-ingest-requirements.md` / `docs/plans/2026-04-15-001-feat-knowledge-ingest-certs-plan.md`）。待真实 PDF 端到端验收后才算真正收尾
 
 2. **`ps:retrospect`（数据回路闭环）**
    - 为什么第二：没有它所有跑过的单子都是孤岛，`cases/` 永远是空目录，flywheel 无法启动
@@ -353,7 +353,7 @@ v1.0 仍然是**售前工具**，不包含：
 
 以下问题在 v0.2 设计前需要用户拍板：
 
-1. **knowledge-ingest 输入格式**：目录约定 / manifest / 混合？
+1. ~~**knowledge-ingest 输入格式**：目录约定 / manifest / 混合？~~ ✅ 已拍板为"纯目录约定"（A 方案），详见 `docs/brainstorms/knowledge-ingest-requirements.md` §5.1
 2. **retrospect 归档时机**：跑完 bid-draft 后立即允许归档，还是必须等 submission 结果？
 3. **bid-review 的 persona 数量**：5 个够不够？是不是按行业再细分（金融/政务/互联网）？
 4. **price 的成本数据来源**：从历史 retrospect 回填，还是手工维护 cost-baseline.yaml？
