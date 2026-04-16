@@ -118,6 +118,24 @@ echo "$PAYLOAD_JSON" | python "${CLAUDE_PLUGIN_ROOT}/scripts/ps_knowledge_ingest
 >
 > 下一步：`/ps:rfp-analyze <slug>` 现在可以基于真实资质证据判断 Go/No-Go。
 
+### Phase 5: 知识库健康度摘要
+
+入库完成后，自动追加一个简版知识库诊断：
+
+```bash
+python "${CLAUDE_PLUGIN_ROOT}/scripts/ps_knowledge_doctor.py" diagnose --mode mini
+```
+
+解析 stdout JSON，渲染 mini 摘要（只显示本次可能变化的维度 + 仍有缺口的维度）：
+
+```
+知识库状态更新
+  公司资质  N 条有效（距充足还差 M 条）
+  仍缺: 产品档案、客户案例、差异化亮点
+```
+
+若脚本失败（非零退出），跳过此步骤不影响 Phase 4 结果，在末尾提示"知识库诊断暂不可用"。
+
 ## 失败处理
 
 | 情况 | 处理 |

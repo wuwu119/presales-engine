@@ -10,13 +10,15 @@
 
 ## 架构
 
-4 个 Skill + 一次 setup + 用户数据目录分离。
+6 个 Skill + 一次 setup + 用户数据目录分离。
 
 ### Skills
 
 | Skill | 触发 | 职责 |
 |-------|------|------|
 | `ps:setup` | 首次安装 / 升级 | 创建 `~/售前/` 骨架、写初始配置、复制种子模板 |
+| `ps:knowledge-ingest` | 用户说"入库证书" | 扫描资质证书目录，LLM 抽取元数据，确认后写入 company-profile.yaml |
+| `ps:knowledge-doctor` | 用户说"知识库诊断" | 9 维度知识库完整度诊断，输出健康度报告 + 缺口指导 |
 | `ps:rfp-parse` | 收到招标文件 | RFP（PDF/Word/MD）结构化解析为 `rfp.yaml` |
 | `ps:rfp-analyze` | parse 完成后 | 战略分析：废标风险、评分杠杆、Go/No-Go 建议、信息缺口 |
 | `ps:bid-draft` | analyze 通过后 | 按章节生成标书草稿，每段追溯到 RFP 评分项 |
@@ -27,7 +29,7 @@
 ```
 presales-engine/
 ├── .claude-plugin/         # 插件 manifest
-├── skills/                 # 4 个 skill 定义
+├── skills/                 # 6 个 skill 定义
 ├── scripts/                # 路径解析 + setup 脚本
 ├── 模板/              # 种子模板（config / company-profile / outline / products/example）
 ├── knowledge-seed/         # 知识库骨架种子（每个子目录一个 README.md 填充指南）
