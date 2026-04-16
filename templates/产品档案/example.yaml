@@ -34,6 +34,15 @@ pricing:
   base: null                    # 基础报价
   unit: ""                      # 计价单位（年 / 次 / 用户）
 
+certifications: []
+  # 产品级认证证书（区别于 company-profile.yaml 的公司级资质）
+  # - name: 网络安全专用产品安全检测证书
+  #   issuer: 公安部计算机信息系统安全产品质量监督检验中心
+  #   cert_no: ""
+  #   valid_until: 2027-06-30
+  #   product_type: 防火墙
+  #   level: EAL3+
+
 references: []
   # 使用此产品的客户案例引用（指向 company-profile.case_references 的 id）
   # - case_id: CASE-001

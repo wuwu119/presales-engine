@@ -9,61 +9,69 @@
 - **个人简历**：核心人员简历 PDF
 - **组织架构图**：团队层级结构
 
-## 目录组织（推荐）
+## 目录组织
 
 ```
-team/
-├── roster.yaml                  # 团队汇总（必须）
-├── certs/                       # 个人证书
-│   ├── zhang-san/
-│   │   ├── pmp-2023-12-31.pdf
-│   │   └── 高项-2025-06-30.pdf
-│   └── li-si/
-│       └── cissp-2027-09-15.pdf
-├── resumes/                     # 个人简历（可选，敏感）
-│   ├── zhang-san.pdf
-│   └── li-si.pdf
-└── org-chart.png                # 组织架构图
+团队/
+├── roster.yaml                        # 汇总层（LLM 常规读，≤200 行）
+├── cert-registry-cisp.yaml            # 明细分片：CISP 系列
+├── cert-registry-pmp.yaml             # 明细分片：PMP
+├── cert-registry-security.yaml        # 明细分片：CISSP/CISAW/CCSK/CISA 等
+├── cert-registry-it-mgmt.yaml         # 明细分片：ITIL/ISO27001/PRINCE2 等
+├── cert-registry-other.yaml           # 明细分片：其他类别
+├── 杭州本地化服务团队.yaml              # 本地化团队花名册（可选）
+├── certs/                              # 个人证书 PDF（可选）
+│   └── zhang-san/pmp-2027-12-31.pdf
+├── resumes/                            # 个人简历 PDF（可选，敏感）
+└── org-chart.png                       # 组织架构图（可选）
 ```
 
-## `roster.yaml` Schema
+## 两层数据结构
+
+### 汇总层：`roster.yaml`（LLM 常规读）
 
 ```yaml
-roles:
-  - role: 项目经理
-    count: 5
-    certifications_summary:
-      PMP: 3
-      PRINCE2: 2
-      高项: 4
-  - role: 高级架构师
-    count: 8
-    certifications_summary:
-      阿里云 ACP: 5
-      AWS SA-Pro: 3
-      CISSP: 2
+meta:
+  data_source: "05 人员资质明细表.xlsx"
+  last_updated: "2026-04-16"
+  total_people: 764
+  total_valid_certs: 1085
 
-key_members:
-  - name: 张三（可脱敏）
-    role: 技术总监
-    years_of_experience: 15
-    certs: [PMP, CISSP, 高项]
-    cert_files: [certs/zhang-san/pmp-2023-12-31.pdf, ...]
-    resume_file: resumes/zhang-san.pdf
+cert_summary_by_type:
+  注册信息安全工程师（CISE）: 155
+  项目管理专业人士资格（PMP）: 201
+  注册信息系统安全专家（CISSP）: 45
+  # ...
+
+cert_summary_by_category:
+  中国信息安全测评中心注册信息安全专业人员（CISP）: 279
+  项目管理专业人士资格（PMP）: 201
+  # ...
 ```
 
-## 命名约定（个人证书）
+`rfp-analyze` 回答 "我们有几个 CISP" 只需读这层。
 
-`<证书名>-<有效期到>.pdf`，例如：
+### 明细层：`cert-registry-{shard}.yaml`（LLM 按需读）
 
-- `pmp-2023-12-31.pdf`
-- `cissp-2027-09-15.pdf`
-- `高项-2025-06-30.pdf`
+每个分片 ≤300 行，紧凑 pipe-delimited 格式：
 
-## 格式
+```yaml
+# cert-registry-cisp
+# 格式: 姓名|工号|证书类型|证书编号|有效期至
+certs:
+  - "张三|A010250|注册信息安全工程师（CISE）|CNITSEC2019CISE0280|2027-06-30"
+  - "李四|A001808|注册渗透测试工程师（CISP-PTE）|PTE-2023-456|2026-12-31"
+```
 
-- `roster.yaml` 必须是 YAML
-- 证书 / 简历用 PDF
+`bid-draft` 需要列人员名单时读对应分片。
+
+## 生成方式
+
+```bash
+python scripts/ps_knowledge_extract.py team \
+  --xlsx "人员资质明细表.xlsx" \
+  --output-dir ~/售前/知识库/团队/
+```
 
 ## 在 company-profile.yaml 里的引用
 
@@ -72,7 +80,7 @@ team:
   - role: 项目经理
     count: 5
     certifications: [PMP, PRINCE2, 高项]
-    evidence_file: team/roster.yaml
+    evidence_file: 知识库/团队/roster.yaml
 ```
 
 ## 谁引用它

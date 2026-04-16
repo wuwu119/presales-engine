@@ -9,6 +9,13 @@
 - `scripts/ps_knowledge_ingest.py`（scan / apply 子命令）+ `tests/test_ps_knowledge_ingest.py`（20 条：9 scan + 9 apply + 2 集成幂等，全绿）
 - `skills/knowledge-ingest/SKILL.md` + `references/cert-extraction-prompt.md`
 - 设计文档：`docs/brainstorms/knowledge-ingest-requirements.md` / `docs/plans/2026-04-15-001-feat-knowledge-ingest-certs-plan.md`
+- **知识库 schema 扩展**：`scripts/ps_knowledge_extract.py`（team / competitors 子命令），从投标参考材料 Excel 批量转换为结构化 YAML
+  - 人员资质：roster.yaml 汇总（证书类型×人数）+ cert-registry-{shard}.yaml 按类别分片明细（pipe-delimited 紧凑格式）
+  - 竞品对比：每家竞品一个 YAML（`知识库/竞品/{slug}.yaml`），从公司级资质沙盘矩阵自动拆分
+  - 产品证书：`templates/产品档案/example.yaml` 新增 `certifications:` 字段
+- `tests/test_ps_knowledge_extract.py`（13 条：8 team + 5 competitors，全绿）
+- 更新 `knowledge-seed/` 团队 + 竞品 README（新 schema 文档）
+- 设计文档：`docs/brainstorms/knowledge-schema-extensions-requirements.md` / `docs/plans/2026-04-16-001-feat-knowledge-schema-extensions-plan.md`
 
 ### 变更
 - **默认数据目录从 `~/.presales/` 改为 `~/presales/`**（无前导点，可见于 Finder/`ls`）
