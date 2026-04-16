@@ -489,3 +489,52 @@ PRESALES_HOME=/tmp/ps-zh-final python3 scripts/ps_setup.py --init --config-json 
 - 设计 `ps:knowledge-ingest` 规范（对应 skill-catalog §4 + §11 未解问题 1）
 - 找一份真实 RFP 跑端到端
 - 修剩余 P1 Python 层（#2 sys.path / #7 rfp_validate / #11 --check json）
+
+## Session: 2026-04-15 (cont.) — ps:knowledge-ingest certs MVP 实现
+
+### 流程
+- `/ce:brainstorm` → `docs/brainstorms/knowledge-ingest-requirements.md`（输入格式 A 纯目录约定，MVP 只 certs，原地扫描，company-profile.yaml 引用为唯一真相源）
+- `/ce:plan` → `docs/plans/2026-04-15-001-feat-knowledge-ingest-certs-plan.md`（5 个实现单元 + 18 条测试场景）
+- `/ce:work` → 新分支 `feat/knowledge-ingest-certs` 上实现 Units 1-4
+
+### 本次产出
+- `scripts/ps_knowledge_ingest.py`（263 行）— scan / apply 子命令，纯文件 IO + YAML merge，不调 LLM
+  - scan：差分 `知识库/资质证书/` 与 `company-profile.yaml.qualifications[].evidence_file`，忽略 README.md / 隐藏文件，大小写不敏感匹配，超过 20 截断并报 over_limit
+  - apply：读 payload stdin/file，按 `QUAL-NNN` 递增分配 id（忽略非标准格式 id），append 写回 + `.bak` 备份 + 原子 `os.replace`
+- `tests/test_ps_knowledge_ingest.py`（355 行，20 条全绿）
+  - scan：9 条（全新 / 部分已登记 / 空目录 / over_limit / README 和隐藏文件过滤 / profile 缺失 / 目录缺失 / YAML 损坏 / 大小写不敏感）
+  - apply：9 条（空 profile 两条 / 从最大 id 继续 / 非标准 id 忽略 / 中文不转义 / 空 payload 无写入 / 缺必填字段 / .bak 备份 / 非法 JSON / 根不是 list）
+  - 集成：2 条（scan→apply→scan 幂等 / 特殊文件名 evidence_path 一致性回归）
+- `skills/knowledge-ingest/SKILL.md`（137 行，≤ 150 约束）
+  - 4 phase：scan 差分 → Claude Read + prompt 抽取 → 表格 + AskUserQuestion 确认 → apply 写入 → 汇报
+  - 强制约束：禁编造 / 禁猜测 / 禁移动原文件 / 禁隐藏状态文件
+- `skills/knowledge-ingest/references/cert-extraction-prompt.md`（102 行）
+  - JSON schema、字段规则、overall_confidence 计算规则、日期规范化、发证机构识别提示、扫描件检测策略
+  - 3 个 few-shot 占位符，Unit 5 端到端验收时用真实证书回填
+
+### 文档同步
+- `docs/design/skill-catalog.md`：§3.1 `knowledge-ingest` 条目重写为"🟡 v0.2-MVP 已实现"，§7 v0.2 清单打标，§8 优先级 #1 改为"实现已完成待验收"，§11 开放决策 #1 划掉并注明已拍板
+- `CHANGELOG.md`：Unreleased 段加"新增"段描述本次产出
+- `progress.md`：本段
+
+### 关键决策（已在 brainstorm/plan 里固化）
+- 输入格式：纯目录约定 A 方案，用户零 YAML / 零 manifest
+- MVP 范围：只 certs/，其余 5 类 v0.3 再扩展
+- 登记状态唯一真相源：`qualifications[].evidence_file`，大小写不敏感，绝不引入 `.ingest-state.json` 等隐藏 ledger
+- LLM 抽取在 skill 宿主 Claude 里完成，Python 不调 API（与 rfp-parse 一致）
+- YAML 写入：全文重写 + `.bak` 备份 + `os.replace` 原子。容忍种子注释丢失（用户版 YAML 不期望保留注释）
+- id 策略：`QUAL-NNN` zero-pad 3 位，按现有最大数字 id +1，非该格式的 id 被忽略
+
+### 有测试 vs 无测试
+- ✅ 有测试：`scripts/ps_knowledge_ingest.py`（20 条单元 + 集成）
+- ⚠️ 无测试（意图）：`skills/knowledge-ingest/SKILL.md` 和 `references/cert-extraction-prompt.md` 是 prompt 文档，靠 Unit 5 端到端人工验收，不适合单元测试
+
+### Unit 5 未跑（阻塞项）
+- 需要用户提供 2-3 张真实证书 PDF 才能跑端到端 smoke test 和回填 few-shot 样本
+- 阻塞的验收项：origin §7 的 5 条（冷启动 / 幂等 / 扫描件 / 追溯完整 / 无隐藏文件），目前前 2 条已由自动化测试间接覆盖，后 3 条需要真实 PDF
+- 在得到真实样本前，`feat/knowledge-ingest-certs` 分支可以合并吗？倾向于合并 — 代码面自动化测试已绿，真实 PDF 验收属于 Unit 5 的 post-merge 回填动作
+
+### 下一步候选
+- 用户提供 2-3 张真实证书 PDF → 跑 Unit 5 端到端 → 回填 few-shot → 合并分支
+- 或先合并 `feat/knowledge-ingest-certs` 到 main，Unit 5 作为独立 PR
+- 或暂停 ingest，先跑真实 RFP 验证 v0.1 业务链路
