@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# INPUT: openpyxl (lazy), yaml (lazy), ps_paths, argparse, json
+# INPUT: openpyxl (lazy), yaml (lazy), argparse, json
 # OUTPUT: team/competitors subcommands to convert Excel → knowledge-base YAML
 # POS: one-time ETL from bid-reference Excel files to structured YAML; no LLM calls
 """Extract structured YAML from bid-reference Excel files.
@@ -84,7 +84,7 @@ COMPETITOR_SHEET = "公司级资质竞争分析沙盘"
 
 EXIT_FILE_MISSING = 2
 EXIT_SHEET_MISSING = 3
-EXIT_OPENPYXL_MISSING = 4
+EXIT_DEPENDENCY_MISSING = 4
 
 
 def _die(code: int, msg: str) -> None:
@@ -98,7 +98,7 @@ def _require_openpyxl():
 
         return openpyxl
     except ImportError:
-        _die(EXIT_OPENPYXL_MISSING, "需要 openpyxl，请运行 `pip install openpyxl` 后重试。")
+        _die(EXIT_DEPENDENCY_MISSING, "需要 openpyxl，请运行 `pip install openpyxl` 后重试。")
 
 
 def _require_yaml():
@@ -107,7 +107,7 @@ def _require_yaml():
 
         return yaml
     except ImportError:
-        _die(EXIT_OPENPYXL_MISSING, "需要 PyYAML，请运行 `pip install pyyaml` 后重试。")
+        _die(EXIT_DEPENDENCY_MISSING, "需要 PyYAML，请运行 `pip install pyyaml` 后重试。")
 
 
 def _clean_cat1(raw: str) -> str:
@@ -295,19 +295,25 @@ def cmd_competitors(args: argparse.Namespace) -> int:
         if not quals:
             continue
 
+        def _yq(s: str) -> str:
+            """Quote a string for YAML if it contains special chars."""
+            if any(c in s for c in ":\"'{}[]|>&*!%@#"):
+                return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+            return s
+
         lines = [
-            f"company: {company}",
+            f"company: {_yq(company)}",
             f"slug: {slug}",
-            f'source: "{xlsx.name}"',
+            f"source: {_yq(xlsx.name)}",
             f"last_updated: {date.today().isoformat()}",
             f"qualification_count: {len(quals)}",
             "",
             "qualifications:",
         ]
         for q in quals:
-            lines.append(f"  - category: {q['category']}")
-            lines.append(f"    name: {q['name']}")
-            lines.append(f"    level: {q['level']}")
+            lines.append(f"  - category: {_yq(q['category'])}")
+            lines.append(f"    name: {_yq(q['name'])}")
+            lines.append(f"    level: {_yq(q['level'])}")
 
         path = output_dir / f"{slug}.yaml"
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
