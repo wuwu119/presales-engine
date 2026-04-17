@@ -1,0 +1,119 @@
+# 核心事实库（结构化索引） — 产品模板
+# 叙述性内容见 facts.md
+# schema 定义见 skills/knowledge-ingest/references/product-cube-schema.md
+# schema_version: "1.0"
+
+meta:
+  slug: example-product
+  name: 示例产品
+  name_en: Example Product
+  vendor: ""
+  category: ""                  # SaaS / 本地部署 / 硬件 / 服务 / SDK / 咨询
+  status: active                # active / deprecated
+  version: ""
+  schema_version: "1.0"
+
+# ━━━ （一）产品概述 ━━━
+
+overview:
+  # M01 整体介绍
+  intro:
+    word_count: null
+    tags: { scene: [], role: [], industry: [] }
+    _q: { confidence: null, gap: "待填充" }
+
+  # M02 产品定位
+  positioning:
+    target_segments: []
+    differentiation_axis: ""
+    has_not_applicable: false
+    tags: {}
+    _q: { confidence: null, gap: "待填充" }
+
+  # M03 应用现状
+  status:
+    customer_count: null
+    industry_distribution: null
+    benchmark_count: null
+    data_as_of: null
+    tags: {}
+    _q: { confidence: null, gap: "待填充" }
+
+  # M04 解决思路
+  approach:
+    methodology_steps: null
+    has_vs_traditional: false
+    tags: {}
+    _q: { confidence: null, gap: "待填充" }
+
+  # M05 演进路线
+  roadmap:
+    near_term: null
+    mid_term: null
+    tags: {}
+    _q: { confidence: null, gap: "待填充" }
+
+# ━━━ （二）产品功能 ━━━
+
+functions:
+  # M06 安全防护类
+  security: []
+    # - { name: "", variant: [], version: "" }
+
+  # M07 运维管理类
+  operations: []
+    # - { name: "", variant: [], has_quantified_effect: false }
+
+  # M08 集成扩展类
+  integration: []
+    # - { name: "", variant: [], protocol: "", additional_cost: false }
+
+# ━━━ （三）应用价值 ━━━
+
+value:
+  # M09 风险防御类
+  risk_defense: []
+    # - { type: "", coverage: "", verification: "" }
+
+  # M10 合规治理类
+  compliance: []
+    # - { regulation: "", clause: "", match: "" }
+
+  # M11 业务赋能
+  business_enablement:
+    items: null
+    _q: { confidence: null, gap: "待填充" }
+
+  # M12 成本优化
+  cost_optimization:
+    has_roi: false
+    _q: { confidence: null, gap: "待填充" }
+
+# ━━━ （四）关键能力 ━━━
+
+capabilities:
+  # M13 核心技术
+  core_tech: []
+    # - { name: "" }
+
+  # M14 差异化亮点
+  differentiators: []
+    # - { point: "", has_evidence: false }
+
+  # M15 验证路径
+  verification: []
+    # - { capability: "", method: "", has_template: false, has_benchmark: false }
+
+# ━━━ （五）典型场景 ━━━
+
+scenarios: []
+  # - { id: SCENE-001, name: "", variant: "", industries: [], has_customer_quote: false }
+
+# ━━━ 技术规格（自由扩展） ━━━
+
+specs: {}
+
+# ━━━ 材料清单 ━━━
+
+sources: []
+  # - { file: "", type: whitepaper|spec_sheet|api_doc|test_case|benchmark|reference }
