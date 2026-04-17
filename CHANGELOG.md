@@ -9,6 +9,13 @@
 - `scripts/ps_knowledge_ingest.py`（scan / apply 子命令）+ `tests/test_ps_knowledge_ingest.py`（20 条：9 scan + 9 apply + 2 集成幂等，全绿）
 - `skills/knowledge-ingest/SKILL.md` + `references/cert-extraction-prompt.md`
 - 设计文档：`docs/brainstorms/knowledge-ingest-requirements.md` / `docs/plans/2026-04-15-001-feat-knowledge-ingest-certs-plan.md`
+- **`ps:knowledge-ingest products` 子流程**：产品材料（PDF/Word/Excel/PPT/MD）→ 产品魔方三库体系结构化入库。产品存储从扁平 `{slug}.yaml` **迁移为子目录结构** `{slug}/facts.yaml + facts.md + evidence.yaml + evidence.md`（**破坏性变更**）
+  - 产品魔方 41 模块完整 schema：`references/product-cube-schema.md`（单一真相源）
+  - LLM 提取 prompt：`references/product-extraction-prompt.md`（19 核心事实 + 13 证据模块）
+  - `scripts/ps_knowledge_ingest.py` 扩展 `--type products`（scan 外部材料目录 + apply 写入 4 文件）
+  - `scripts/ps_knowledge_doctor.py` 产品诊断升级：从文件计数改为分级可用评估（已录入/可查/可投），新增 `products_detail` 字段
+  - `tests/` 新增 20 条产品测试（12 ingest + 8 doctor），全部 63 条测试通过
+  - 下游更新：`bid-draft`/`rfp-analyze`/`setup` 产品发现路径从 `产品档案/*.yaml` → `产品档案/*/facts.yaml`
 - **知识库 schema 扩展**：`scripts/ps_knowledge_extract.py`（team / competitors 子命令），从投标参考材料 Excel 批量转换为结构化 YAML
   - 人员资质：roster.yaml 汇总（证书类型×人数）+ cert-registry-{shard}.yaml 按类别分片明细（pipe-delimited 紧凑格式）
   - 竞品对比：每家竞品一个 YAML（`知识库/竞品/{slug}.yaml`），从公司级资质沙盘矩阵自动拆分

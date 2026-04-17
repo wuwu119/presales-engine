@@ -1,155 +1,147 @@
 ---
 name: ps:knowledge-ingest
-description: 把 知识库/资质证书/ 下的证书 PDF 批量登记进 company-profile.yaml。扫描未登记文件，LLM 抽取元数据，用户确认后 append 进 qualifications[]。v0.2 MVP 只支持 certs。当用户说"入库证书"、"登记资质"、"knowledge ingest"、"扫描证书目录"时触发。
-argument-hint: "certs"
+description: 把知识库材料结构化入库。支持 certs（资质证书→company-profile.yaml）和 products（产品材料→产品档案/{slug}/）两种类型。当用户说"入库证书"、"入库产品"、"knowledge ingest"时触发。
+argument-hint: "certs | products --source <材料目录>"
 ---
 
-# ps:knowledge-ingest — 资质证书入库
+# ps:knowledge-ingest
 
-## 前置条件
+## 类型路由
+
+| 参数 | 触发 | 流程 |
+|------|------|------|
+| `certs` | 入库证书、登记资质 | → Certs 流程（下方） |
+| `products --source <路径>` | 入库产品、产品入库 | → Products 流程（下方） |
+
+---
+
+## Certs 流程 — 资质证书入库
+
+### 前置条件
 
 - `ps:setup` 已执行，`${PRESALES_HOME}/知识库/资质证书/` 存在
-- 用户已把证书 PDF 拷贝到上述目录（文件名建议英文或简单中文，例如 `iso27001.pdf` / `等保三级.pdf`）
+- 用户已把证书 PDF 拷贝到上述目录
 
-## 输入
+### 行为流程
 
-`${PRESALES_HOME}/知识库/资质证书/` 下的 `.pdf` 文件。非 PDF / `.DS_Store` / `README.md` 自动忽略。
+**Phase 0 (scan):** `python "${CLAUDE_PLUGIN_ROOT}/scripts/ps_knowledge_ingest.py" scan --type certs`。空目录/全已登记→退出。
 
-## 输出
+**Phase 1 (extract):** 逐个 Read PDF，按 `references/cert-extraction-prompt.md` 输出 JSON，标置信度。禁止猜测。
 
-| 文件 | 变更 |
+**Phase 2 (confirm):** Markdown 表 + AskUserQuestion 批量确认（全部批准/只批高置信/逐条/放弃）。
+
+**Phase 3 (apply):** `echo "$PAYLOAD" | python "${CLAUDE_PLUGIN_ROOT}/scripts/ps_knowledge_ingest.py" apply --payload-file -`
+
+**Phase 4 (report):** 输出新增条目数、跳过数、放弃数、备份路径。
+
+**Phase 5 (diagnose):** `python "${CLAUDE_PLUGIN_ROOT}/scripts/ps_knowledge_doctor.py" diagnose --mode mini`，渲染 mini 摘要。
+
+### 约束
+
+- 禁止编造字段、禁止不经确认写入、禁止移动原 PDF、禁止删 .bak
+
+---
+
+## Products 流程 — 产品材料入库
+
+### 前置条件
+
+- `ps:setup` 已执行，`${PRESALES_HOME}/知识库/产品档案/` 存在
+- 用户提供产品材料目录路径（含 PDF/Word/Excel/PPT/MD）
+
+### 输入/输出
+
+| 输入 | 输出 |
 |------|------|
-| `知识库/company-profile.yaml` | `qualifications[]` append 新条目 |
-| `知识库/company-profile.yaml.bak` | 写入前的备份 |
+| `--source <外部材料目录>` | `知识库/产品档案/{slug}/facts.yaml` |
+| 支持: PDF, docx, xlsx, pptx, md | `知识库/产品档案/{slug}/facts.md` |
+| 材料只读，不移动不复制 | `知识库/产品档案/{slug}/evidence.yaml` |
+| | `知识库/产品档案/{slug}/evidence.md` |
 
-原 PDF 文件不移动、不改名、不拷贝。
+### 行为流程
 
-## 参数
-
-v0.2 仅支持一个参数：`certs`。传其他值 / 不传都按 certs 处理。
-
-## 行为流程
-
-### Phase 0: 扫描差分
-
-调用 scan 子命令拿到待处理列表：
+**Phase 1 (scan):**
 
 ```bash
-python "${CLAUDE_PLUGIN_ROOT}/scripts/ps_knowledge_ingest.py" scan --type certs
+python "${CLAUDE_PLUGIN_ROOT}/scripts/ps_knowledge_ingest.py" scan --type products --source <路径> [--slug <slug>]
 ```
 
-解析 stdout JSON。根据结果分支：
+解析 stdout JSON。`status == "exists"` 且无 `--force` → 提示"产品已存在，跳过或用 --force 覆盖"。展示文件清单，请用户确认 slug。
 
-- `new_files == []` 且 `already_registered == 0` → 提示用户 "资质证书目录为空，请把 PDF 放进 `知识库/资质证书/` 后重跑"，退出
-- `new_files == []` 且 `already_registered > 0` → 提示 "所有证书已登记（共 N 条），无需操作"，退出
-- `over_limit == true` → 先警告 "检测到超过 20 个新文件，本次只处理前 20 个，完成后再跑一次处理剩余"，继续 Phase 1
-- `new_files` 非空 → 进入 Phase 1
+**Phase 2 (extract):**
 
-脚本非零退出（代码 2/3/4/5）时直接把 stderr 中文化透传给用户，不进入后续阶段。
+逐个 Read 材料文件，按 `references/product-extraction-prompt.md` 提取：
+1. 先提取核心事实库 19 模块 → facts JSON
+2. 再提取可信证据库 13 模块 → evidence JSON
+3. 生成 facts.md 和 evidence.md（叙述性段落，缺失项标 `> ❌`）
+4. 每个模块标 `_q`（confidence + source + gap）
 
-### Phase 1: LLM 抽取（Claude 执行）
+材料文件多时分批读取，避免单次上下文过长。PPT 为实验性支持（best-effort）。
 
-对 `new_files` 中每个文件：
+**Phase 3 (review):**
 
-1. 用 Read 工具读取 `${PRESALES_HOME}/知识库/资质证书/<file>`（PDF 最多 20 页 / 次，单张证书足够）
-2. 按 `references/cert-extraction-prompt.md` 的 schema 输出 JSON
-3. 每个字段标 `high` / `medium` / `low` 置信度
-4. 按 schema 文档的 `overall_confidence` 规则计算整体置信度
-5. 扫描件 PDF 读取失败 → 按 schema 的"扫描件检测"规则输出 low + notes
-
-**禁止**：凭经验猜测、改写原文、合并多张证书、翻译 issuer。
-
-### Phase 2: 表格呈现 + 用户确认
-
-把 Phase 1 结果整理成紧凑 Markdown 表（不折行，≤ 6 列）：
+展示产品魔方审计表：
 
 ```
-| # | 文件 | 证书名 | 发证机构 | 有效期至 | 置信度 |
-|---|------|--------|----------|----------|--------|
-| 1 | iso27001.pdf | ISO 27001 信息安全管理体系 | CNAS | 2027-06-30 | ✅ |
-| 2 | 等保三级.pdf | 信息系统安全等级保护三级 | ⚠️ 未识别 | ⚠️ 未识别 | ⚠️ |
+产品魔方审计 — {slug}
+  核心事实库 (19): ✅ 12  ⚠️ 3  ❌ 4  → 可查级
+  证据库 (13):     ✅ 2   ⚠️ 1  ❌ 10
+
+  模块明细:
+  ✅ M01 整体介绍     high  白皮书§1
+  ✅ M02 产品定位     high  白皮书§2
+  ⚠️ M03 应用现状     medium  缺客户数
+  ❌ M05 演进路线     —  需产品经理输入
+  ...
 ```
 
-置信度列：`high` → ✅，`medium` → ⚠️，`low` → ⚠️。
+用户选择："确认写入" / "补全后写入" / "放弃"。
 
-表格下方显示每条低置信度项的 `notes` 字段（如有），帮助用户判断。
+选"补全后写入" → 进入 Phase 3a。
 
-然后用 `AskUserQuestion` 批量确认，选项设计为：
+**Phase 3a (interactive fill):** 对话式逐模块补全。自动提取能补的先补，需要人工的提示"这个信息找谁要"。补全后更新审计表。
 
-- **全部批准**（仅当所有行都是 ✅ 时作为推荐项）
-- **只批准高置信度条目**（跳过所有 ⚠️ 行）
-- **逐条确认**（进入循环，每条单独问批准 / 跳过 / 用户手修 YAML）
-- **全部放弃**（本次 session 不写任何条目）
+**Phase 4 (apply):**
 
-用户选择 "逐条确认" 且某条需要手修时，提示用户："脚本不接受手修的条目，请先跳过，本轮完成后手动编辑 `知识库/company-profile.yaml` 添加。"
-
-### Phase 3: 写入
-
-把用户批准的条目构造成 payload 数组（字段映射见下），调 apply：
+构造 payload JSON（含 facts_yaml, facts_md, evidence_yaml, evidence_md 四个字符串），调用：
 
 ```bash
-echo "$PAYLOAD_JSON" | python "${CLAUDE_PLUGIN_ROOT}/scripts/ps_knowledge_ingest.py" apply --payload-file -
+echo "$PAYLOAD" | python "${CLAUDE_PLUGIN_ROOT}/scripts/ps_knowledge_ingest.py" apply --type products --slug <slug> --payload-file -
 ```
 
-**payload 字段映射**（每条）：
-
-| payload 字段 | 来源 | 必填 |
-|--------------|------|------|
-| `file` | Phase 1 JSON 的 `file` | 是 |
-| `name` | 同 | 是 |
-| `issuer` | 同 | 是 |
-| `cert_no` | 同（可 null） | 否 |
-| `valid_from` | 同（可 null） | 否 |
-| `valid_until` | 同 | 是 |
-| `subject` | 同（可 null） | 否 |
-| `confidence` | 映射 `overall_confidence` | 否，默认 high |
-
-脚本写入成功后 stdout 返回 `{"added": N, "ids": [...]}`。
-
-### Phase 4: 结果汇报
-
-必须输出：
-
-> ✅ 登记完成
-> - 新增条目：{N} 条（{ids}）
-> - 跳过已登记：{M} 条
-> - 用户放弃：{K} 条（其中 ⚠️ 低置信度 {L} 条）
-> - 备份文件：`知识库/company-profile.yaml.bak`
->
-> 下一步：`/ps:rfp-analyze <slug>` 现在可以基于真实资质证据判断 Go/No-Go。
-
-### Phase 5: 知识库健康度摘要
-
-入库完成后，自动追加一个简版知识库诊断：
+**Phase 5 (diagnose):**
 
 ```bash
 python "${CLAUDE_PLUGIN_ROOT}/scripts/ps_knowledge_doctor.py" diagnose --mode mini
 ```
 
-解析 stdout JSON，渲染 mini 摘要（只显示本次可能变化的维度 + 仍有缺口的维度）：
+输出产品当前等级、缺什么、下一步建议。
+
+### 批量模式
+
+`--source` 指向包含多个产品子目录的父目录时，循环执行 Phase 1-5。每个产品独立上下文（产品间清空），产品间输出分隔线 + 等级摘要。全部完成后汇总：
 
 ```
-知识库状态更新
-  公司资质  N 条有效（距充足还差 M 条）
-  仍缺: 产品档案、客户案例、差异化亮点
+批量入库完成: 5 个产品
+  ✅ firewall-pro     可投
+  ✅ siem-enterprise   可查
+  ⚠️ edr-agent        已录入（核心事实 45%）
+  ...
 ```
 
-若脚本失败（非零退出），跳过此步骤不影响 Phase 4 结果，在末尾提示"知识库诊断暂不可用"。
+### 约束
 
-## 失败处理
+- **禁止编造** — 材料未提及的信息标 null + `_q.confidence: null`
+- **禁止不经确认写入** — Phase 3 审计表确认后才进 Phase 4
+- **禁止移动材料** — 只读取，不动原始文件
+- **幂等跳过** — 已存在的产品默认跳过，`--force` 覆盖
+
+### 失败处理
 
 | 情况 | 处理 |
 |------|------|
-| 资质证书目录不存在（脚本退出码 3） | 提示用户运行 `/ps:setup` 初始化知识库 |
-| `company-profile.yaml` YAML 损坏（码 4） | 报错 + 显示脚本 stderr，建议用户从 `.bak` 恢复或手修后重跑 |
-| payload 校验失败（码 5） | 这是 skill 构造 payload 的 bug，直接把 stderr 抛给用户 + 请求反馈 |
-| Read 工具读 PDF 失败 / 扫描件无文本 | 按 schema "扫描件检测" 规则整行标 ⚠️，让用户决定跳过 |
-| 用户要求处理 cases/ 或 products/ | 明确拒绝："v0.2 MVP 只支持 certs，其他类型将在 v0.3 加入" |
-
-## 约束（强制）
-
-- **禁止编造字段** — LLM 无法从原文直接看出的字段必须 null + low，不猜测
-- **禁止不经用户确认写入** — 所有写入必须走 Phase 2 确认
-- **禁止移动或改名原 PDF** — evidence_file 路径始终指向用户原始位置
-- **禁止在 知识库/ 下创建隐藏状态文件** — 登记状态只存在 `company-profile.yaml.qualifications[].evidence_file`
-- **禁止跳过 .bak 备份** — 脚本已自动生成，skill 不得删除
+| 材料目录不存在 | 脚本退出码 3，提示检查路径 |
+| 材料为空（无支持格式） | 提示"目录下没有支持的文件格式" |
+| 产品已存在且无 --force | 提��跳过或用 --force |
+| Read 读 PDF 失败 | 跳过该文件，提示提供替代格式 |
+| PPT 提取效果差 | 提示"PPT 为实验性支持，建议提供 PDF/Word" |

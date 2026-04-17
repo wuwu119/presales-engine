@@ -1,0 +1,48 @@
+# 可信证据库（结构化索引） — 产品模板
+# 叙述性内容见 evidence.md
+# schema 定义见 skills/knowledge-ingest/references/product-cube-schema.md
+
+meta:
+  slug: example-product
+  schema_version: "1.0"
+
+# ━━━ （六）权威背书 ━━━
+
+authority:
+  # M20 市场研究报告
+  market_reports: []
+    # - { name: "", institution: "", year: null, conclusion: "", page_ref: "" }
+
+  # M21 第三方测评
+  evaluations: []
+    # - { name: "", institution: "", date: null, report_id: null, _q: {} }
+
+  # M22 合规与创新认证
+  certifications: []
+    # - { name: "", issuer: "", cert_no: null, valid_until: null, scope: "" }
+
+# ━━━ （七）荣誉奖项 ━━━
+
+honors:
+  # M23 国际奖项
+  international: []
+
+  # M24 国内奖项
+  domestic: []
+
+  # M25 行业荣誉
+  industry: []
+
+# ━━━ （八）成功案例 ━━━
+
+cases: []
+  # - id: CASE-001
+  #   customer: 某XX企业
+  #   industry: ""
+  #   variant: ""
+  #   scale: null
+  #   date: null
+  #   has_quantified_results: false
+  #   has_testimonial: false
+  #   has_attachments: false
+  #   scene_tags: []
