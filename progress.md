@@ -538,3 +538,41 @@ PRESALES_HOME=/tmp/ps-zh-final python3 scripts/ps_setup.py --init --config-json 
 - 用户提供 2-3 张真实证书 PDF → 跑 Unit 5 端到端 → 回填 few-shot → 合并分支
 - 或先合并 `feat/knowledge-ingest-certs` 到 main，Unit 5 作为独立 PR
 - 或暂停 ingest，先跑真实 RFP 验证 v0.1 业务链路
+
+## Session: 2026-04-17 — 产品知识库入库（products 子命令）
+
+### Commits
+- `92ac135` feat(knowledge-ingest): add product cube schema + subdirectory storage structure
+- `ffd349d` feat(knowledge-ingest): add products scan/apply subcommands
+- `6140ffc` feat(knowledge-doctor): upgrade product diagnosis to tiered assessment
+- `2878732` feat(knowledge-ingest): add product extraction prompt + update skill workflows
+- `b4a825f` fix(knowledge-ingest): remove unreachable fallback in main() router
+
+### 决策
+- 产品存储从扁平 `{slug}.yaml` 迁移为子目录 `{slug}/`（破坏性变更）
+- 产品魔方 41 模块体系完整对标（核心事实 19 + 证据 13 + 策略 9 骨架）
+- 产品入库走 SKILL.md（LLM 决策）而非 scripts/（脚本体力活）——与 certs 入库架构不同
+- 不重构 ps_knowledge_ingest.py 为插件式——certs 和 products 的 IO 差异太大
+- 产品发现契约：子目录 + facts.yaml 存在 = 一个有效产品
+- 四级可用：已录入 → 可查 → 可投 → 可竞
+
+### 本次产出
+- `skills/knowledge-ingest/references/product-cube-schema.md` — 41 模块 schema 定义
+- `skills/knowledge-ingest/references/product-extraction-prompt.md` — LLM 提取 prompt
+- `templates/産品档案/example/` — YAML+MD 双文件模板（4 文件，替代旧 example.yaml）
+- `knowledge-seed/産品档案/README.md` — 更新目录结构说明
+- `scripts/ps_knowledge_ingest.py` — 新增 products scan/apply + _slugify + _write_text_atomic
+- `scripts/ps_knowledge_doctor.py` — 产品诊断从计数→分级评估（_check_facts_coverage / _check_evidence_coverage）
+- `skills/knowledge-ingest/SKILL.md` — 扩展 products 5 阶段流程（147 行）
+- `skills/bid-draft/SKILL.md` + `skills/rfp-analyze/SKILL.md` + `skills/setup/SKILL.md` — 产品发现路径更新
+
+### 模块测试状态
+- ✅ `test_ps_knowledge_ingest.py` — 32 条（20 certs + 12 products）全绿
+- ✅ `test_ps_knowledge_doctor.py` — 18 条（10 原有 + 8 产品分级）全绿
+- ✅ `test_ps_knowledge_extract.py` — 13 条不变，全绿
+- ⚠️ 无测试：product-cube-schema.md、product-extraction-prompt.md（prompt 文档，靠端到端验收）
+- ⚠️ 无测试：_slugify（仅通过 scan_products 间接覆盖，CJK/特殊字符边界未直测）
+
+### 发现（review）
+- P1#1 已修复：main() 路由器末尾 unreachable fallback 删除
+- P2 不影响功能：_diagnose_products 返回值缺 `count` key（旧字段，已用 `value` 替代向后兼容）

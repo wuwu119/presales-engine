@@ -98,14 +98,14 @@ ps:knowledge-ingest 自动提取可复用资产
 #### `ps:rfp-analyze` ✅ v0.1
 - 见 `architecture-v0.1.md` §4.3 的完整契约
 - **职责**：战略分析 + Go/No-Go 决策矩阵
-- **输入**：`rfp.yaml` + `company-profile.yaml` + `产品档案/*.yaml`
+- **输入**：`rfp.yaml` + `company-profile.yaml` + `产品档案/*/facts.yaml`
 - **输出**：`分析/analysis.md`（废标风险 / 评分杠杆 / 竞品格局 / 决策矩阵 / 信息缺口）
 
 ### 3.4 方案设计
 
 #### `ps:solution-ideate` 🚧 v0.3
 - **职责**：方案多路径发散
-- **输入**：`rfp.yaml` + `analysis.md` + `产品档案/*.yaml`
+- **输入**：`rfp.yaml` + `analysis.md` + `产品档案/*/facts.yaml`
 - **输出**：`商机/{slug}/方案/candidates.md`（**3 条路径**：最小可行 / 标准推荐 / 旗舰方案）
 - **硬规则**：强制产出 3 条，避免销售只会报一个中间档
 - **价值**：反自嗨机制，客户能感受到选项对比
@@ -178,21 +178,13 @@ ps:knowledge-ingest 自动提取可复用资产
 
 这层 skill 独立于 pipeline，任何阶段都可以跑。是系统的长期资产层。
 
-#### `ps:knowledge-ingest` 🟡 v0.2-MVP（**certs 已实现，待真实 PDF 验收**）
+#### `ps:knowledge-ingest` ✅ v0.2（certs + products 已实现）
 
-- **职责**：把 `知识库/{子目录}/` 下的证据文件批量登记进 `company-profile.yaml`
-- **输入格式**：**纯目录约定**（决策见 `docs/brainstorms/knowledge-ingest-requirements.md`）
-  - 用户只扔 PDF，不写 YAML / manifest
-  - 原地扫描，不移动 / 拷贝
-  - 登记状态以 `qualifications[].evidence_file` 为唯一真相源
-- **处理流程**：
-  1. `scan` 差分 `知识库/资质证书/` 与 `company-profile.yaml`
-  2. Claude 用 Read 工具读每个新 PDF，按 `references/cert-extraction-prompt.md` schema 输出 JSON + 置信度
-  3. 紧凑表格呈现 + AskUserQuestion 批量确认
-  4. `apply` 把批准条目 append 进 `qualifications[]`，生成 `.bak` 备份
-- **MVP 范围**：`certs/` 一个子目录。`cases / products / about / competitors / team` 推迟到 v0.3
-- **价值**：整个证据链的起点。`rfp-analyze` / `bid-draft` 从此有真实 qualifications 可用
-- **扩展路径**：`scripts/ps_knowledge_ingest.py` 的 `--type` 参数是其他类型接入点，v0.3 按同模板扩展
+- **职责**：把知识库材料结构化入库，支持 `certs`（资质证书）和 `products`（产品档案）两种类型
+- **certs 子流程**：扫描 `知识库/资质证书/` → LLM 读 PDF 抽取元数据 → 用户确认 → append 进 `company-profile.yaml.qualifications[]`
+- **products 子流程**：读取外部材料目录 → LLM 按产品魔方 41 模块提取 → 审计表确认 → 写入 `知识库/产品档案/{slug}/`（facts.yaml/md + evidence.yaml/md）
+- **产品存储**：子目录结构（破坏性变更），四级可用（已录入/可查/可投/可竞）
+- **价值**：整个证据链的起点。`rfp-analyze` / `bid-draft` 从此有真实资质和产品数据可用
 
 #### `ps:case-match` 🚧 v0.3
 - **职责**：历史案例检索
@@ -260,7 +252,7 @@ ps:knowledge-ingest 自动提取可复用资产
 
 ### v0.2（下一版本，重点：质量门槛 + 知识资产基础）
 
-- 🟡 `ps:knowledge-ingest` — certs MVP 已实现（`feat/knowledge-ingest-certs`），待真实 PDF 端到端验收
+- ✅ `ps:knowledge-ingest` — certs + products 已实现
 - 🚧 `ps:retrospect`（数据回路闭环）
 - 🚧 `ps:bid-review`（多角色批判，对标 ce:review）
 - 🚧 `ps:bid-compliance`（合规清单，把 v0.1 没实现的硬门槛补上）
@@ -296,9 +288,9 @@ ps:knowledge-ingest 自动提取可复用资产
 
 按 ROI × 依赖关系排序。前 3 个是必做，后 4 个按需：
 
-1. **`ps:knowledge-ingest`（certs MVP 已实现，待验收）**
-   - 为什么第一：定了输入格式之后整个证据链才有起点。不定它，所有后续 skill 都要假设知识库是空的或者靠用户手写，体验差
-   - v0.2 进度：brainstorm → plan → 实现已完成（`docs/brainstorms/knowledge-ingest-requirements.md` / `docs/plans/2026-04-15-001-feat-knowledge-ingest-certs-plan.md`）。待真实 PDF 端到端验收后才算真正收尾
+1. **`ps:knowledge-ingest`** ✅ 已完成
+   - certs（资质证书）+ products（产品档案）两种类型均已实现
+   - 63 条自动化测试全绿
 
 2. **`ps:retrospect`（数据回路闭环）**
    - 为什么第二：没有它所有跑过的单子都是孤岛，`cases/` 永远是空目录，flywheel 无法启动
