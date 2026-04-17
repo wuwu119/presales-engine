@@ -182,17 +182,177 @@ def _diagnose_team_registry(paths: dict[str, Path]) -> dict:
     }
 
 
+def _check_facts_coverage(data: dict) -> int:
+    """Count non-empty modules out of 16 facts keys.
+
+    Dict-type modules: non-empty if _q.confidence is not null.
+    List-type modules: non-empty if len > 0.
+    """
+    count = 0
+
+    # overview: 5 dict-type sub-modules
+    overview = data.get("overview") or {}
+    for key in ("intro", "positioning", "status", "approach", "roadmap"):
+        item = overview.get(key)
+        if isinstance(item, dict):
+            q = item.get("_q")
+            if isinstance(q, dict) and q.get("confidence") is not None:
+                count += 1
+
+    # functions: 3 list-type sub-modules
+    functions = data.get("functions") or {}
+    for key in ("security", "operations", "integration"):
+        item = functions.get(key)
+        if isinstance(item, list) and len(item) > 0:
+            count += 1
+
+    # value: 4 sub-modules (2 lists + 2 dict-like, but spec says 4 total)
+    value = data.get("value") or {}
+    for key in ("risk_defense", "compliance"):
+        item = value.get(key)
+        if isinstance(item, list) and len(item) > 0:
+            count += 1
+    for key in ("business_enablement", "cost_optimization"):
+        item = value.get(key)
+        if isinstance(item, dict):
+            q = item.get("_q")
+            if isinstance(q, dict) and q.get("confidence") is not None:
+                count += 1
+
+    # capabilities: 3 list-type sub-modules
+    capabilities = data.get("capabilities") or {}
+    for key in ("core_tech", "differentiators", "verification"):
+        item = capabilities.get(key)
+        if isinstance(item, list) and len(item) > 0:
+            count += 1
+
+    # scenarios: 1 list-type module
+    scenarios = data.get("scenarios")
+    if isinstance(scenarios, list) and len(scenarios) > 0:
+        count += 1
+
+    return count
+
+
+_FACTS_TOTAL = 16
+
+
+def _check_evidence_coverage(data: dict) -> int:
+    """Count non-empty evidence keys out of 7.
+
+    All are list-type: non-empty if len > 0.
+    """
+    count = 0
+
+    # authority: 3 list-type sub-modules
+    authority = data.get("authority") or {}
+    for key in ("market_reports", "evaluations", "certifications"):
+        item = authority.get(key)
+        if isinstance(item, list) and len(item) > 0:
+            count += 1
+
+    # honors: 3 list-type sub-modules
+    honors = data.get("honors") or {}
+    for key in ("international", "domestic", "industry"):
+        item = honors.get(key)
+        if isinstance(item, list) and len(item) > 0:
+            count += 1
+
+    # cases: 1 list-type module
+    cases = data.get("cases")
+    if isinstance(cases, list) and len(cases) > 0:
+        count += 1
+
+    return count
+
+
+_EVIDENCE_TOTAL = 7
+
+
 def _diagnose_products(paths: dict[str, Path]) -> dict:
-    """Dimension: product YAML files."""
-    count = _count_yaml_files(paths["products"], exclude_example=True)
+    """Dimension: product subdirectories with tiered assessment.
+
+    Product discovery: subdirectory + facts.yaml exists = one valid product.
+    Excludes 'example' directory. Calculates tier per product based on
+    facts and evidence coverage.
+    """
+    yaml_mod = _require_yaml()
+    products_dir = paths["products"]
+    products_detail: list[dict] = []
+
+    if products_dir.exists():
+        for entry in sorted(products_dir.iterdir()):
+            if not entry.is_dir():
+                continue
+            if entry.name == "example":
+                continue
+
+            facts_path = entry / "facts.yaml"
+            if not facts_path.exists():
+                continue
+
+            # Parse facts.yaml
+            try:
+                raw = yaml_mod.safe_load(facts_path.read_text(encoding="utf-8"))
+            except Exception:
+                products_detail.append({
+                    "slug": entry.name,
+                    "tier": "error",
+                    "facts_coverage_pct": 0,
+                    "evidence_coverage_pct": 0,
+                    "gap_count": _FACTS_TOTAL + _EVIDENCE_TOTAL,
+                })
+                continue
+
+            if not isinstance(raw, dict):
+                raw = {}
+
+            facts_filled = _check_facts_coverage(raw)
+            facts_coverage = facts_filled / _FACTS_TOTAL
+
+            # Parse evidence.yaml (optional)
+            evidence_path = entry / "evidence.yaml"
+            evidence_filled = 0
+            if evidence_path.exists():
+                try:
+                    ev_raw = yaml_mod.safe_load(
+                        evidence_path.read_text(encoding="utf-8")
+                    )
+                except Exception:
+                    ev_raw = {}
+                if not isinstance(ev_raw, dict):
+                    ev_raw = {}
+                evidence_filled = _check_evidence_coverage(ev_raw)
+
+            evidence_coverage = evidence_filled / _EVIDENCE_TOTAL
+
+            # Tier calculation
+            if facts_coverage >= 0.8 and evidence_coverage >= 0.5:
+                tier = "可投"
+            elif facts_coverage >= 0.6:
+                tier = "可查"
+            else:
+                tier = "已录入"
+
+            gap_count = (_FACTS_TOTAL - facts_filled) + (_EVIDENCE_TOTAL - evidence_filled)
+
+            products_detail.append({
+                "slug": entry.name,
+                "tier": tier,
+                "facts_coverage_pct": round(facts_coverage * 100),
+                "evidence_coverage_pct": round(evidence_coverage * 100),
+                "gap_count": gap_count,
+            })
+
+    total = len(products_detail)
     return {
         "dimension": "products",
         "label": "产品档案",
-        "count": count,
+        "value": total,
         "min_baseline": 1,
         "sufficient": 3,
-        "value": count,
-        "data_location": "产品档案/*.yaml（排除 example）",
+        "products_detail": products_detail,
+        "data_location": "产品档案/*/facts.yaml",
     }
 
 
