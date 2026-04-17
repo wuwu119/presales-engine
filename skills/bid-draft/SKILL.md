@@ -22,7 +22,8 @@ argument-hint: "<opportunity-slug> [--chapter <name>] [--outline-only]"
 - `商机/{slug}/分析/rfp.yaml`
 - `商机/{slug}/分析/analysis.md`
 - `${PRESALES_HOME}/知识库/company-profile.yaml`
-- `${PRESALES_HOME}/知识库/产品档案/*.yaml`
+- `${PRESALES_HOME}/知识库/产品档案/*/facts.yaml`（结构化参数）
+- `${PRESALES_HOME}/知识库/产品档案/*/facts.md`（段落引用）
 - 模板（用户优先）：
   - `${PRESALES_HOME}/模板/outline-{language}.yaml` — 章节大纲
   - `${PRESALES_HOME}/模板/chapters/*.md` — 章节正文片段（可无）
@@ -55,7 +56,7 @@ argument-hint: "<opportunity-slug> [--chapter <name>] [--outline-only]"
 
 1. 读取该章节应覆盖的评分项和需求条目
 2. 读取模板片段（若 `模板/chapters/{name}.md` 存在）
-3. 结合 `company-profile` 和 `products/*` 生成正文
+3. 结合 `company-profile` 和 `产品档案/*/facts.yaml` + `facts.md` 生成正文
 4. **每段末尾必须追加追溯标记**：`> [对标: SCORING-<id> / REQ-<id> / DISQ-<id>]`
 5. 写入 `草稿/章节/{NN-name}.md`
 
@@ -89,7 +90,7 @@ argument-hint: "<opportunity-slug> [--chapter <name>] [--outline-only]"
 - **禁止数字魔法** — 不编造业绩数据、用户量、性能指标
 - **语言一致** — 使用 `rfp.yaml.meta.language`，不要混用
 - **术语镜像** — 关键术语使用 RFP 原文用词（例如 RFP 用"招标人"就不要写"甲方"），**不要**"翻译"成产品手册术语
-- **禁止产品吹嘘** — `products/*.yaml` 中没写的能力不要在标书中"加戏"
+- **禁止产品吹嘘** — `产品档案/*/facts.yaml` 中没写的能力不要在标书中"加戏"
 
 ## 单章重生成
 

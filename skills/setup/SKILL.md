@@ -181,9 +181,9 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/ps_setup.py" \
 
 > ⚠️ **证据库 / 产品库 / 案例库的构建不归 `ps:setup` 管**
 >
-> `company-profile.yaml` 里的 `qualifications[]` / `case_references[]` / `team[]` 字段，以及 `知识库/产品档案/*.yaml` 需要基于真实文件证据（ISO 证书 PDF、案例 PPT、产品手册等）建立。
+> `company-profile.yaml` 里的 `qualifications[]` / `case_references[]` / `team[]` 字段，以及 `知识库/产品档案/*/facts.yaml` 需要基于真实文件证据（ISO 证书 PDF、案例 PPT、产品手册等）建立。
 > v0.1 的 setup **只写基础公司信息**，这些高价值字段留空。
-> 未来版本会引入独立的 `ps:knowledge-ingest`（暂定名）skill，让用户按标准格式提供证据文件，预处理成标准化的知识库条目。设计待定。
+> 使用 `/ps:knowledge-ingest certs` 入库资质证书，`/ps:knowledge-ingest products --source <目录>` 入库产品档案。
 
 ### A. 非交互路径（仅当配置已被提供）
 
