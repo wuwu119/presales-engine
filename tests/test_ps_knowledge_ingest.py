@@ -353,3 +353,266 @@ def test_integration_apply_then_scan_matches_evidence_path_format(tmp_path):
 
     r_scan = run(["scan", "--type", "certs"], home=home)
     assert json.loads(r_scan.stdout)["new_files"] == []
+
+
+# ---------- products helpers ----------
+
+
+def make_products_dir(home: Path) -> Path:
+    """Ensure 知识库/产品档案/ exists in home."""
+    d = home / "知识库" / "产品档案"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def make_product_source(tmp_path: Path, files: list[str], dirname: str = "my-product") -> Path:
+    """Create a source directory with fake files for product scan testing."""
+    src = tmp_path / dirname
+    src.mkdir(parents=True, exist_ok=True)
+    for f in files:
+        (src / f).write_bytes(b"fake content for testing\n")
+    return src
+
+
+def make_product_payload(
+    facts_yaml: str = "name: Test Product\n",
+    facts_md: str = "# Test Product\n",
+    evidence_yaml: str = "sources: []\n",
+    evidence_md: str = "# Evidence\n",
+) -> dict:
+    return {
+        "facts_yaml": facts_yaml,
+        "facts_md": facts_md,
+        "evidence_yaml": evidence_yaml,
+        "evidence_md": evidence_md,
+    }
+
+
+# ---------- products scan ----------
+
+
+def test_scan_products_three_pdfs(tmp_path):
+    home = make_home(tmp_path)
+    make_products_dir(home)
+    src = make_product_source(tmp_path, ["a.pdf", "b.pdf", "c.pdf"])
+
+    r = run(["scan", "--type", "products", "--source", str(src)], home=home)
+
+    assert r.returncode == 0, r.stderr
+    out = json.loads(r.stdout)
+    assert len(out["files"]) == 3
+    assert out["status"] == "new"
+    assert out["slug"] == "my-product"
+    names = [f["name"] for f in out["files"]]
+    assert sorted(names) == ["a.pdf", "b.pdf", "c.pdf"]
+
+
+def test_scan_products_source_not_exist(tmp_path):
+    home = make_home(tmp_path)
+    make_products_dir(home)
+
+    r = run(["scan", "--type", "products", "--source", str(tmp_path / "nonexistent")], home=home)
+
+    assert r.returncode == 3
+    assert "产品材料目录不存在" in r.stderr
+
+
+def test_scan_products_slug_exists(tmp_path):
+    home = make_home(tmp_path)
+    products = make_products_dir(home)
+    slug_dir = products / "my-product"
+    slug_dir.mkdir()
+    (slug_dir / "facts.yaml").write_text("name: Old\n")
+
+    src = make_product_source(tmp_path, ["a.pdf"])
+
+    r = run(["scan", "--type", "products", "--source", str(src)], home=home)
+
+    assert r.returncode == 0
+    out = json.loads(r.stdout)
+    assert out["status"] == "exists"
+
+
+def test_scan_products_slug_exists_force(tmp_path):
+    home = make_home(tmp_path)
+    products = make_products_dir(home)
+    slug_dir = products / "my-product"
+    slug_dir.mkdir()
+    (slug_dir / "facts.yaml").write_text("name: Old\n")
+
+    src = make_product_source(tmp_path, ["a.pdf"])
+
+    r = run(["scan", "--type", "products", "--source", str(src), "--force"], home=home)
+
+    assert r.returncode == 0
+    out = json.loads(r.stdout)
+    assert out["status"] == "new"
+
+
+def test_scan_products_mixed_formats(tmp_path):
+    home = make_home(tmp_path)
+    make_products_dir(home)
+    src = make_product_source(
+        tmp_path,
+        ["doc.pdf", "sheet.xlsx", "slides.pptx", "notes.md", "image.png", "data.csv", "word.docx"],
+    )
+
+    r = run(["scan", "--type", "products", "--source", str(src)], home=home)
+
+    assert r.returncode == 0
+    out = json.loads(r.stdout)
+    names = sorted(f["name"] for f in out["files"])
+    # Only supported extensions: pdf, docx, xlsx, pptx, md
+    assert names == ["doc.pdf", "notes.md", "sheet.xlsx", "slides.pptx", "word.docx"]
+
+
+def test_scan_products_empty_dir(tmp_path):
+    home = make_home(tmp_path)
+    make_products_dir(home)
+    src = make_product_source(tmp_path, [])
+
+    r = run(["scan", "--type", "products", "--source", str(src)], home=home)
+
+    assert r.returncode == 0
+    out = json.loads(r.stdout)
+    assert out["files"] == []
+
+
+# ---------- products apply ----------
+
+
+def test_apply_products_valid_payload(tmp_path):
+    home = make_home(tmp_path)
+    make_products_dir(home)
+    payload = make_product_payload()
+    payload_file = tmp_path / "payload.json"
+    payload_file.write_text(json.dumps(payload), encoding="utf-8")
+
+    r = run(
+        ["apply", "--type", "products", "--slug", "test-prod", "--payload-file", str(payload_file)],
+        home=home,
+    )
+
+    assert r.returncode == 0, r.stderr
+    out = json.loads(r.stdout)
+    assert out["slug"] == "test-prod"
+    assert sorted(out["files_written"]) == ["evidence.md", "evidence.yaml", "facts.md", "facts.yaml"]
+
+    slug_dir = home / "知识库" / "产品档案" / "test-prod"
+    assert slug_dir.exists()
+    assert (slug_dir / "facts.yaml").exists()
+    assert (slug_dir / "facts.md").exists()
+    assert (slug_dir / "evidence.yaml").exists()
+    assert (slug_dir / "evidence.md").exists()
+
+    # facts.yaml should be parseable YAML
+    facts = yaml.safe_load((slug_dir / "facts.yaml").read_text(encoding="utf-8"))
+    assert facts["name"] == "Test Product"
+
+
+def test_apply_products_slug_exists_no_force(tmp_path):
+    home = make_home(tmp_path)
+    products = make_products_dir(home)
+    slug_dir = products / "existing-prod"
+    slug_dir.mkdir()
+    (slug_dir / "facts.yaml").write_text("name: Old\n")
+
+    payload = make_product_payload()
+
+    r = run(
+        ["apply", "--type", "products", "--slug", "existing-prod", "--payload-file", "-"],
+        home=home,
+        stdin=json.dumps(payload),
+    )
+
+    assert r.returncode == 5
+    assert "产品已存在" in r.stderr
+
+
+def test_apply_products_slug_exists_force(tmp_path):
+    home = make_home(tmp_path)
+    products = make_products_dir(home)
+    slug_dir = products / "existing-prod"
+    slug_dir.mkdir()
+    (slug_dir / "facts.yaml").write_text("name: Old\n")
+
+    payload = make_product_payload(facts_yaml="name: New Product\n")
+
+    r = run(
+        ["apply", "--type", "products", "--slug", "existing-prod", "--payload-file", "-", "--force"],
+        home=home,
+        stdin=json.dumps(payload),
+    )
+
+    assert r.returncode == 0
+    facts = yaml.safe_load((slug_dir / "facts.yaml").read_text(encoding="utf-8"))
+    assert facts["name"] == "New Product"
+
+
+def test_apply_products_missing_payload_key(tmp_path):
+    home = make_home(tmp_path)
+    make_products_dir(home)
+    # Missing evidence_md
+    bad_payload = {"facts_yaml": "x", "facts_md": "x", "evidence_yaml": "x"}
+
+    r = run(
+        ["apply", "--type", "products", "--slug", "bad-prod", "--payload-file", "-"],
+        home=home,
+        stdin=json.dumps(bad_payload),
+    )
+
+    assert r.returncode == 5
+    assert "evidence_md" in r.stderr
+
+
+def test_apply_products_invalid_json(tmp_path):
+    home = make_home(tmp_path)
+    make_products_dir(home)
+
+    r = run(
+        ["apply", "--type", "products", "--slug", "bad-prod", "--payload-file", "-"],
+        home=home,
+        stdin="not valid json{{{",
+    )
+
+    assert r.returncode == 5
+    assert "JSON" in r.stderr
+
+
+# ---------- products integration ----------
+
+
+def test_products_integration_scan_apply_rescan(tmp_path):
+    """Full cycle: scan source → apply payload → rescan → status exists."""
+    home = make_home(tmp_path)
+    make_products_dir(home)
+    src = make_product_source(tmp_path, ["spec.pdf", "datasheet.docx"])
+
+    # Step 1: scan
+    r_scan1 = run(["scan", "--type", "products", "--source", str(src)], home=home)
+    assert r_scan1.returncode == 0
+    scan1 = json.loads(r_scan1.stdout)
+    assert scan1["status"] == "new"
+    assert len(scan1["files"]) == 2
+    slug = scan1["slug"]
+
+    # Step 2: apply
+    payload = make_product_payload()
+    r_apply = run(
+        ["apply", "--type", "products", "--slug", slug, "--payload-file", "-"],
+        home=home,
+        stdin=json.dumps(payload),
+    )
+    assert r_apply.returncode == 0
+
+    # Step 3: verify directory structure
+    slug_dir = home / "知识库" / "产品档案" / slug
+    assert slug_dir.is_dir()
+    for fname in ["facts.yaml", "facts.md", "evidence.yaml", "evidence.md"]:
+        assert (slug_dir / fname).exists(), f"Missing {fname}"
+
+    # Step 4: rescan → status "exists"
+    r_scan2 = run(["scan", "--type", "products", "--source", str(src)], home=home)
+    assert r_scan2.returncode == 0
+    scan2 = json.loads(r_scan2.stdout)
+    assert scan2["status"] == "exists"
