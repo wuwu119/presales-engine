@@ -387,11 +387,10 @@ def main(argv: list[str] | None = None) -> int:
                 _die(EXIT_PAYLOAD_INVALID, "--source is required when --type=products")
             return cmd_scan_products(args)
         return cmd_scan(args)
-    elif args.cmd == "apply":
+    else:  # apply
         if args.type == "products":
             return cmd_apply_products(args)
         return cmd_apply(args)
-    return args.func(args)
 
 
 if __name__ == "__main__":
